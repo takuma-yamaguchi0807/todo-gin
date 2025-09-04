@@ -1,0 +1,43 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+
+# VS Code: keep settings.json, ignore others
+.vscode/*
+!.vscode/settings.json
+
+# Go build/test artifacts
+bin/
+build/
+dist/
+coverage.out
+*.test
+*.exe
+*.out
+*.log
+
+# Env files and local configs
+.env
+.env.*
+!env.example
+
+# Local development assets (per README)
+local/
+*.pem
+*.key
+*.crt
+*.pfx
+*.jwk
+*.jwks
+
+# Databases / caches
+*.sqlite
+*.db
+
+# Docker local data
+docker-data/
+pgdata/
+
+
