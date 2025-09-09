@@ -7,8 +7,8 @@ Go + Gin で実装する TODO アプリの学習用プロジェクトです。DD
 ## スタック / 方針
 
 - バックエンド: Go 1.23 + Gin（このリポジトリ）
-- データアクセス: 生 SQL（`database/sql` ベース）。将来 `sqlc` や GORM への置き換え可能
-- 認証/認可: 自前ユーザ DB + Bearer JWT（RS256）
+  - データアクセス: 生 SQL（`database/sql` ベース）。
+  - 認証/認可: 自前ユーザ DB + Bearer JWT（RS256）
   - サーバ自身が署名（RSA 秘密鍵）し、公開鍵は JWKS で配布
 - フロント: Next.js（静的エクスポート中心）/ S3 から配信、API は別ドメイン
 - インフラ（本番のみ）:
@@ -27,10 +27,8 @@ Go + Gin で実装する TODO アプリの学習用プロジェクトです。DD
 
 - User
   - id (UUID)
-  - email (unique)
-  - name
+  - email (UNIQUE)
   - password_hash（自前認証時のみ）
-  - created_at / updated_at
 - Todo
   - id (UUID)
   - user_id (FK -> User.id)
@@ -38,7 +36,6 @@ Go + Gin で実装する TODO アプリの学習用プロジェクトです。DD
   - description (<= 2000) 任意
   - status: enum(`todo`|`doing`|`done`), 既定: `todo`
   - due_date (nullable)
-  - created_at / updated_at
 
 ## API 仕様（共通・JSON）
 
@@ -50,11 +47,8 @@ Go + Gin で実装する TODO アプリの学習用プロジェクトです。DD
 
 - POST `/auth/login`
   - 入力: `{ "email": string, "password": string }`
-  - 出力: `{ "access_token": string, "token_type": "Bearer", "expires_in": number, "user": { id, email, name } }`
-  - パスワードは Argon2id（推奨）で検証（Bcrypt でも可）
-- GET `/me`（認証必須）
-  - 出力: `{ id, email, name }`
-- GET `/.well-known/jwks.json`（公開鍵配布; 自前発行の検証用）
+  - 出力: `{ "access_token": string}`
+  - パスワードは postgres の拡張機能の pg_crypt を用いた bcrypt
 
 ### Todos（認証必須・User スコープ）
 

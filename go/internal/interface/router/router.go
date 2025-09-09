@@ -32,11 +32,11 @@ func SetupRoutes(r *gin.Engine, tc *controller.TodoController) {
     // Todos
     todos := r.Group("/todos")
     {
-        todos.GET("", tc.Get)
+        // ユーザーIDでTodo一覧を取得（パスパラメータ）
+        todos.GET("/users/:userId", tc.Get)
         todos.GET(":id", tc.Detail)
         todos.POST("", tc.Create)
         todos.PUT(":id", tc.Update)
         todos.DELETE(":id", tc.Delete)
     }
 }
-

@@ -1,7 +1,8 @@
 package todo
 
 import (
-	"fmt"
+    "fmt"
+    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/app/apperror"
 )
 
 type Status string
@@ -13,10 +14,13 @@ const (
 )
 
 func NewStatus(v string) (Status, error) {
-	switch Status(v) {
-	case Wait,Doing,Done:
-		return Status(v), nil
-	default:
-		return "", fmt.Errorf("invalid status: %s", v)
-	}
+    switch Status(v) {
+    case Wait,Doing,Done:
+        return Status(v), nil
+    default:
+        return "", apperror.InvalidErr("todo.status", fmt.Sprintf("invalid status: %s", v), nil)
+    }
 }
+
+// String はステータス文字列を返します。
+func (s Status) String() string { return string(s) }
