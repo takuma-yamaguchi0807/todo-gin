@@ -1,10 +1,11 @@
 package usecase
 
 import (
-    "context"
+	"context"
 
-    "github.com/google/uuid"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
+	"github.com/google/uuid"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/dto"
 )
 
 // TodoDeleteUsecase は削除系のユースケース。
@@ -17,8 +18,7 @@ func NewTodoDeleteUsecase(repo todo.TodoRepository) *TodoDeleteUsecase {
     return &TodoDeleteUsecase{repo: repo}
 }
 
-// Execute はID1件の削除を行うダミー実装。
-func (uc *TodoDeleteUsecase) Execute(ctx context.Context) error {
+func (uc *TodoDeleteUsecase) Execute(ctx context.Context, req dto.TodoDeleteRequest) error {
     id, _ := todo.NewId(uuid.NewString())
     return uc.repo.DeleteByIds(ctx, []todo.Id{id})
 }

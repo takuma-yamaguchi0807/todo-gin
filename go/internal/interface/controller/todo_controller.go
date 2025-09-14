@@ -57,10 +57,22 @@ func (tc *TodoController) Update(c *gin.Context){
 }
 
 func (tc *TodoController) Delete(c *gin.Context){
-    // TODO: parse id and call tc.deleteUC.Execute()
-    if err := tc.deleteUC.Execute(c.Request.Context()); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+    //requestの内容をdtoにconvert
+    var req dto.TodoDeleteRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        appErr := apperror.InvalidErr("body", "invalid request body", err)
+        c.JSON(apperror.StatusCode(appErr), gin.H{
+            "error": appErr.Kind,
+            "field": appErr.Field,
+            "msg":   appErr.Msg,
+        })
         return
     }
-    c.Status(http.StatusNoContent)
+    //execute実行
+    err := tc.deleteUC.Execute(c.Request.Context(),req)
+    if err != nil {
+        c.JSON(apperror.StatusCode(err), gin.H{"error": err.Error()})
+        return
+    }
+    c.JSON(http.StatusNoContent,nil)
 }

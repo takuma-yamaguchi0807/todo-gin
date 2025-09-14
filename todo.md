@@ -25,5 +25,5 @@ cloudfront 作成
 Fargate 作成
 rds 作成
 
-docker 設置(grafana 含めて)
+docker 作成（ローカル db 用、grafana 用）
 ecr に push する ci/cd 設定
