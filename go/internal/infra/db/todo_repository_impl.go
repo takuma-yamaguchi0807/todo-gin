@@ -1,12 +1,12 @@
 package db
 
 import (
-    "context"
-    "database/sql"
-    "errors"
+	"context"
+	"database/sql"
+	"errors"
 
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/user"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/user"
 )
 
 // TodoRepositoryImpl is a minimal database/sql implementation.
@@ -24,7 +24,26 @@ func (r *TodoRepositoryImpl) Save(ctx context.Context, t *todo.Todo) error {
 }
 
 func (r *TodoRepositoryImpl) FindById(ctx context.Context, id todo.Id) (*todo.Todo, error) {
-    return nil, errors.New("TodoRepositoryImpl.FindById not implemented")
+    const q = `
+        SELECT
+            id::text,
+            user_id::text,
+            title,
+            description,
+            status,
+            to_char(due_date, 'YYYY-MM-DD')
+        FROM todo
+        WHERE id = $1
+    `
+    row := r.db.QueryRowContext(ctx, q, id.UUID())
+    t, err := r.scanTodo(row)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return nil, err
+        }
+        return nil, err
+    }
+    return t, nil
 }
 
 func (r *TodoRepositoryImpl) FindByUser(ctx context.Context, userId user.Id) ([]*todo.Todo, error) {
