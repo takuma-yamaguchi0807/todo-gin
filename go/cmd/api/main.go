@@ -6,6 +6,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/config"
+	infraauth "github.com/takuma-yamaguchi0807/todo-gin/go/internal/infra/auth"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/infra/db"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/controller"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/router"
@@ -51,7 +52,12 @@ func buildDependency() (*controller.TodoController, *controller.UserController) 
     // dependency user
     userRepo := db.NewUserRepositoryImpl(sdb)
     signupUC := usecase.NewUserSignupUsecase(userRepo)
-    loginUC := usecase.NewUserLoginUsecase(userRepo)
+
+    // JWT: 環境変数から取得（未設定時はローカル用デフォルト）
+    secret := config.GetenvOrDefault("JWT_SECRET", "changeme-secret")
+    issuer := config.GetenvOrDefault("JWT_ISSUER", "todo-gin")
+    jwtGen := infraauth.NewHS256Generator(secret, issuer)
+    loginUC := usecase.NewUserLoginUsecase(userRepo, jwtGen)
     userController := controller.NewUserController(signupUC, loginUC)
 
     return todoController, userController
