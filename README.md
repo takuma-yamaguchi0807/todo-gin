@@ -159,36 +159,6 @@ docker run --name todo-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgre
 
 Prometheus / Grafana は設定ファイルが必要なため、後日 `docker-compose.yml` を用意します（最小構成）。
 
-## リポジトリ構成（抜粋）
-
-```
-todo-gin/
-  go/
-    cmd/
-      api/
-        main.go
-    internal/
-      app/
-        apperror/
-        config/
-      domain/
-        todo/
-        user/
-      infra/
-        db/
-      interface/
-        controller/
-        dto/
-        router/
-      observability/
-        opentelemetry.go
-        prometheus.go
-      usecase/
-        ...
-  next/                # フロント（別途）
-  terraform/           # IaC（将来）
-```
-
 ## ローカル開発（最小）
 
 前提
@@ -237,3 +207,41 @@ go run .
 - バリデーションは API 層で最小限（タイトル長など）
 - リポジトリは最小のインターフェースで開始し、必要に応じて拡張
 - トレースとメトリクスは最小から開始し、ボトルネック観測後に強化
+
+## TODO（進捗管理）
+
+- バックエンド（Go / Gin）
+
+  - [x] Todos: 一覧取得（GET `/todos`）
+  - [x] Todos: 詳細取得（GET `/todos/{id}`）
+  - [ ] Todos: 作成（POST `/todos`）
+  - [ ] Todos: 更新（PUT `/todos/{id}`）
+  - [ ] Todos: 一括削除（DELETE `/todos` with body `{ ids: string[] }`）
+  - [ ] 認証: JWT 発行/検証（HS256）実装とミドルウェア適用
+  - [ ] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
+  - [ ] OpenTelemetry 設定（Gin と DB のトレース、OTLP Exporter）
+  - [ ] Prometheus メトリクス公開（`/metrics`）
+
+- フロントエンド（Next.js）
+
+  - [ ] 初期セットアップ（TypeScript, ESLint/Prettier, ディレクトリ構成）
+  - [ ] 認証画面（ログイン/サインアップ）
+  - [ ] TODO 一覧（取得・選択・一括削除）
+  - [ ] TODO 詳細（表示・更新）
+  - [ ] TODO 作成（タイトル必須、任意項目あり）
+  - [ ] API クライアント（JWT 付与、エラー処理、型定義）
+
+- インフラ（Terraform / AWS）
+
+  - [ ] S3 + CloudFront（SPA 配信）
+  - [ ] ECS Fargate + ALB（API）
+  - [ ] RDS PostgreSQL（DB）
+  - [ ] ECR（コンテナレジストリ）
+  - [ ] Secrets Manager（JWT 秘密鍵、DB 接続）
+  - [ ] Route53 + ACM（ドメイン/証明書）
+
+- ローカル開発・運用
+  - [ ] Docker コンテナ整備（PostgreSQL、Prometheus、Grafana、任意で OTel Collector）
+  - [ ] docker-compose.yml の用意（最小構成）
+  - [ ] GitHub Actions（ビルド →ECR push→ECS デプロイ）
+  - [ ] README の手順更新（起動・環境変数・CI/CD 概要）
