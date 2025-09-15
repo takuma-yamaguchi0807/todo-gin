@@ -1,10 +1,10 @@
 package todo
 
 import (
-    "strings"
-    "time"
+	"strings"
+	"time"
 
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/app/apperror"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/common"
 )
 
 type DueDate struct {
@@ -17,7 +17,7 @@ func NewDueDate(s string) (DueDate,error){
     }
     parsed, err := time.Parse("2006-01-02", s)
     if err != nil {
-        return DueDate{}, apperror.InvalidErr("todo.due_date", "invalid date format. must be yyyy-mm-dd", err)
+        return DueDate{}, common.InvalidErr("todo.due_date", "invalid date format. must be yyyy-mm-dd", err)
     }
     return DueDate{value: &parsed}, nil
 }

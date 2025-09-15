@@ -1,88 +1,200 @@
 # todo-gin
 
-Go + Gin で実装する TODO アプリの学習用プロジェクトです。DDD 構成、JWT 認証（RS256）、SPA 配信（S3 + CloudFront）、API（ALB → ECS Fargate → RDS/PostgreSQL）、IaC（Terraform）を前提にします。
+Go + Gin をバックエンド、TypeScript + React + Next をフロント、AWS をインフラ基盤として構築する学習用 TODO アプリの設計ドキュメントです。必要最小限の構成で、後から段階的に拡張できることを前提とします。
 
-本 README は v1（初稿）です。実装/構成が固まり次第、随時更新します。
+## 目的と読者
 
-## スタック / 方針
+- 読者: 本リポジトリの開発者（バックエンド / フロント / インフラ）
+- 目的: 最小構成の実装方針、API・画面仕様、インフラ構成、運用・監視を 1 ファイルで共有する
+- 範囲: 認証・TODO の CRUD・最小の監視・最小の CI/CD
 
-- バックエンド: Go 1.23 + Gin（このリポジトリ）
-  - データアクセス: 生 SQL（`database/sql` ベース）。
-  - 認証/認可: 自前ユーザ DB + Bearer JWT（RS256）
-  - サーバ自身が署名（RSA 秘密鍵）し、公開鍵は JWKS で配布
-- フロント: Next.js（静的エクスポート中心）/ S3 から配信、API は別ドメイン
-- インフラ（本番のみ）:
-  - S3 + CloudFront（SPA 配信）
-  - ALB → ECS Fargate（API）→ RDS (PostgreSQL)（シングル AZ / 最小構成）
-  - Route53 + ACM、WAF、Secrets Manager（JWT 鍵や DB 接続情報）
-  - ECR（API のコンテナイメージ保管）
-- IaC: Terraform（ローカル state、ロック無し）
-- ドメイン: `app.aws-traning.com`（SPA）/ `api.aws-traning.com`（API）
-- CORS: 本番は `https://app.aws-traning.com` のみ許可。ローカルは `http://localhost:3000` を追加
-- 削除方針: 物理削除から開始（必要に応じて将来論理削除に拡張）
+## 全体像（要約）
 
-補足: マイグレーションは `golang-migrate` を想定（一般的な選択肢）。代替として `goose`/`dbmate`/`atlas` 等もあり。
+- バックエンド: Go 1.23 + Gin
+- フロント: TypeScript + React + Next（SPA 静的配信）
+- 認証: JWT（HS256）でログイン状態を管理（`sub` からユーザ ID を特定）
+- インフラ: S3 + CloudFront（SPA 配信）、ALB + ECS Fargate（API）、RDS PostgreSQL（DB）、ECR（イメージ保管）
+- CI/CD: GitHub Actions でビルド → ECR へ push → ECS を更新（詳細のジョブ例は割愛）
+- オブザーバビリティ: OpenTelemetry + Prometheus + Grafana（最小）
 
-## ドメインモデル（DDD）
+## アーキテクチャ図
+
+```mermaid
+graph TD
+  UserBrowser -- HTTPS --> CloudFront
+  CloudFront -- SPA --> S3
+  UserBrowser -- HTTPS_API --> ALB
+  ALB --> ECS_Fargate
+  ECS_Fargate --> RDS_PostgreSQL
+  ECS_Fargate --> Prometheus_Exporter
+  ECS_Fargate --> OpenTelemetry_Exporter
+  Grafana --> Prometheus
+  ECR --> ECS_Fargate
+```
+
+注記: 図のラベルは記号制約のため簡略化しています。実際は Route53 や ACM を併用します。
+
+## ドメインモデル（最小）
 
 - User
-  - id (UUID)
-  - email (UNIQUE)
-  - password_hash（自前認証時のみ）
+  - id: UUID
+  - email: UNIQUE
+  - password_hash
 - Todo
-  - id (UUID)
-  - user_id (FK -> User.id)
-  - title (<= 140)
-  - description (<= 2000) 任意
-  - status: enum(`todo`|`doing`|`done`), 既定: `todo`
-  - due_date (nullable)
+  - id: UUID
+  - user_id: FK -> User.id
+  - title: string(<=140)
+  - description?: string(<=2000)（任意）
+  - status: enum("todo"|"doing"|"done") 既定: "todo"
+  - due_date?: ISO8601（任意）
 
-## API 仕様（共通・JSON）
+## テーブル定義（PostgreSQL）
 
-- ベース URL: `https://api.aws-traning.com`
-- CORS: Origin `https://app.aws-traning.com` のみ許可（ローカルは `http://localhost:3000`）
-- 認証: Bearer JWT（RS256, `Authorization: Bearer <token>`）
+```sql
+-- users
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- todos
+CREATE TABLE todos (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK (char_length(title) <= 140),
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo','doing','done')),
+  due_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_todos_user_id ON todos(user_id);
+```
+
+- `description` と `due_date` は任意（NULL 許可）
+- アプリ側で UUID を生成して保存（DB ではデフォルト生成しない最小構成）
+
+## API 仕様（JSON, 最小）
+
+- ベース URL: 例 `https://api.example.com`（本番ドメインは別途設定）
+- 認証: Bearer JWT（`Authorization: Bearer <token>`）
+- CORS: 本番は SPA ドメインのみ許可。ローカルは `http://localhost:3000` 追加
+- ユーザ特定: JWT の `sub` をユーザ ID として使用（`/me` は提供しない）
 
 ### Auth
 
+- POST `/auth/signup`
+  - 入力: `{ "email": string, "password": string }`
+  - 出力: `{ "access_token": string }`（登録と同時にログイン）
 - POST `/auth/login`
   - 入力: `{ "email": string, "password": string }`
-  - 出力: `{ "access_token": string}`
-  - パスワードは postgres の拡張機能の pg_crypt を用いた bcrypt
+  - 出力: `{ "access_token": string }`
+- GET `/.well-known/jwks.json`（公開鍵の配布）
 
 ### Todos（認証必須・User スコープ）
 
-- GET `/todos?status=&limit=&offset=`
-  - ログインユーザの Todo のみ返却（`user_id = JWT.sub`）
+- GET `/todos`
+  - ログインユーザの Todo 一覧を返却（クエリパラメータなし）
 - POST `/todos`
-  - 入力: `{ "title": string(<=140), "description"?: string(<=2000), "status"?: "todo"|"doing"|"done", "due_date"?: ISO8601 }`
+  - 入力: `{ "title": string, "description"?: string, "status"?: "todo"|"doing"|"done", "due_date"?: ISO8601 }`
   - 出力: 作成された Todo
 - GET `/todos/{id}`
   - ログインユーザの所有物のみ
-- PUT `/todos/{id}`（全項目更新; PATCH でも可）
-- DELETE `/todos/{id}`（最小は物理削除）
+- PUT `/todos/{id}`（全項目更新; 最小構成）
+- DELETE `/todos`
+  - 入力: `{ "ids": string[] }`
+  - 複数 ID を受け取り削除（単一削除も配列 1 要素で対応）。`DELETE` の JSON ボディを受け付けるポリシー
 
-## アーキテクチャ
+ステータスコード: 2xx 成功、4xx バリデーション / 認可エラー、5xx サーバエラー
 
-- SPA: Next.js を `npm run build && next export` で静的化 → `S3` へデプロイ → `CloudFront` 配信
-- API: `ALB` → `ECS Fargate (Go/Gin)` → `RDS(PostgreSQL)`
-- 証明書/ドメイン: `ACM`（リージョン適合に注意）+ `Route53`
-- セキュリティ: `WAF`（CloudFront/ALB いずれか適用）、`Secrets Manager` に秘密情報保管
-- コンテナ: `ECR` にイメージ push、ECS タスク定義で参照
+## 画面要件（最小）
 
-## ローカル開発
+- ログイン画面
+  - email / password
+- サインアップ画面
+  - email / password（強度は最小）
+- TODO 一覧
+  - チェックボックス選択 → 一括削除、詳細リンク
+- TODO 詳細
+  - 表示 + 更新（タイトル等）
+- TODO 登録
+  - タイトル必須、他は任意
 
-前提
+フロントは Next を静的化し S3 配信。API は別ドメイン（CORS 設定）
 
-- Go 1.23+
-- Node.js 18+（フロント別リポジトリ想定）
-- Docker（PostgreSQL 用）
+## 認証・セキュリティ（最小）
 
-PostgreSQL（Docker 例）
+- JWT: HS256
+  - 秘密鍵: Secrets Manager に保管
+  - `sub`: ユーザ ID、`exp`: 有効期限（例 3600 秒）
+  - 備考: 公開鍵/JWKS は RS256 採用時のみ必要（HS256 では不要）
+- パスワード: bcrypt（コストはデフォルトから調整）
+  - ポリシー: 最低 8 文字、かつ 次のうち 2 種類以上を含む（英大文字/英小文字/数字/記号）
+- メールアドレス: RFC に準拠した形式検証（`net/mail` 相当の最低限チェック）
+- CSRF: Authorization ヘッダで送るため不要（状態レス）
+- CORS: 本番は SPA ドメインのみ許可
+
+## オブザーバビリティ（最小）
+
+- OpenTelemetry: Gin ハンドラと DB をトレース（OTLP Exporter）
+- Prometheus: `/metrics` を公開（ECS タスクからスクレイプ可能なネットワークに配置）
+- Grafana: ダッシュボードで可視化（Prometheus をデータソース）
+
+## 必要な Docker コンテナ（ローカル想定）
+
+- PostgreSQL: `postgres:16`
+- Prometheus: `prom/prometheus`
+- Grafana: `grafana/grafana`
+- 任意: OpenTelemetry Collector: `otel/opentelemetry-collector`
+
+PostgreSQL 起動例（参考）
 
 ```bash
 docker run --name todo-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=todo -p 5432:5432 -d postgres:16
 ```
+
+Prometheus / Grafana は設定ファイルが必要なため、後日 `docker-compose.yml` を用意します（最小構成）。
+
+## リポジトリ構成（抜粋）
+
+```
+todo-gin/
+  go/
+    cmd/
+      api/
+        main.go
+    internal/
+      app/
+        apperror/
+        config/
+      domain/
+        todo/
+        user/
+      infra/
+        db/
+      interface/
+        controller/
+        dto/
+        router/
+      observability/
+        opentelemetry.go
+        prometheus.go
+      usecase/
+        ...
+  next/                # フロント（別途）
+  terraform/           # IaC（将来）
+```
+
+## ローカル開発（最小）
+
+前提
+
+- Go 1.23+
+- Docker（PostgreSQL 用）
 
 環境変数（例）
 
@@ -91,81 +203,37 @@ docker run --name todo-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgre
 PORT=8080
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/todo?sslmode=disable
 
-# JWT（ローカルは PEM 文字列 or ファイルパス指定のどちらかを選択）
+# JWT（ローカルは PEM ファイルパスでも可）
 JWT_PRIVATE_KEY_PATH=./local/private.pem
-JWT_PUBLIC_JWKS_PATH=./local/jwks.json  # ローカル配布用（本番はHTTPで配布）
-JWT_ISSUER=https://api.aws-traning.com
-JWT_AUDIENCE=https://api.aws-traning.com
+JWT_PUBLIC_JWKS_PATH=./local/jwks.json
+JWT_ISSUER=https://api.example.com
+JWT_AUDIENCE=https://api.example.com
 JWT_EXPIRES=3600
 ```
 
-マイグレーション（予定: golang-migrate）
-
-```
-migrations/
-  0001_init.up.sql
-  0001_init.down.sql
-
-# 例）適用
-migrate -database "$DATABASE_URL" -path migrations up
-```
-
-API の起動（現在は最小のエンドポイントのみ）
+起動
 
 ```bash
-cd go
-go run ./main.go
-# -> http://localhost:8080/healthz, /me
+cd go/cmd/api
+go run .
+# -> http://localhost:8080/healthz 等（実装に応じて）
 ```
 
-## JWT/鍵管理
+## インフラ方針（最小）
 
-- 署名: RS256（RSA）
-- 本番: Secrets Manager に RSA 秘密鍵（PEM）を保管し、ECS タスク起動時に環境変数/ファイルとして渡す
-- JWKS: `GET /.well-known/jwks.json` を API で配布（公開鍵）。フロントからの検証が不要でも、他サービス連携や将来用に用意
-- 鍵ローテーション: `kid` 対応の JWKS を返却し、複数鍵の併存を許容
+- SPA: S3 配信 + CloudFront
+- API: ALB → ECS Fargate（Go/Gin）→ RDS PostgreSQL
+- 証明書/ドメイン: ACM + Route53
+- 秘密情報: Secrets Manager（JWT 鍵、DB 接続）
+- コンテナ: ECR に push し ECS タスク定義で参照
 
-## Terraform（方針）
+### CI/CD（最小）
 
-- 単一環境（prod のみ）・ローカル state（S3 Backend/ロック無し）
-- 最小構成でコスト抑制（RDS: `db.t4g.micro`/Single-AZ, Fargate: 0.25vCPU/0.5GB）
-- 構成例
+- GitHub Actions でビルド → ECR へ push → ECS サービスを更新（ジョブ Yaml の例はこの設計書では省略）
 
-```
-infra/
-  prod/
-    main.tf
-    variables.tf
-    outputs.tf
-    s3_cf/           # SPA 配信用 S3/CloudFront/ACM/Route53
-    api_alb_ecs/     # ALB/ECS(Fargate)/ECR
-    rds/             # PostgreSQL
-    waf/
-    secrets/
-```
+## 実装メモ（シンプルさ最優先）
 
-## セキュリティ/運用メモ
-
-- CORS: 本番は `https://app.aws-traning.com` のみ許可。ローカルのみ `http://localhost:3000` を追加
-- Cookie は使わず Authorization ヘッダで送信（XSS 考慮）。CSRF は不要（状態レス）
-- パスワードハッシュ: Argon2id（メモリ/反復ハードニング）を推奨。Bcrypt を使う場合は cost 調整
-- RDS への接続は最低限 SG/サブネット分離、公開しない。ALB→ECS のみ外向き
-- WAF は最低限のレート制限/共通ルールセットを適用
-
-## 進行状況
-
-- [x] 技術方針の合意（Go+Gin、生 SQL、RS256、自前認証、単一 prod 環境）
-- [x] README v1（この文書）
-- [ ] DDD スケルトン配置（cmd/internal 整備）
-- [ ] マイグレーション雛形（users, todos）
-- [ ] 認証（/auth/login, /me, JWKS）
-- [ ] Todos CRUD 実装
-- [ ] Terraform（最小構成）
-
----
-
-質問/未確定点
-
-- パスワードハッシュは Argon2id で進めます（問題なければこのまま固めます）
-- `sqlc` を使い「生 SQL + 型安全」にする案もあります（導入希望あれば対応）
-- Terraform のリージョンは `ap-northeast-1` 前提でよいですか？
+- 過剰な抽象化は避ける（まずはシンプルに）
+- バリデーションは API 層で最小限（タイトル長など）
+- リポジトリは最小のインターフェースで開始し、必要に応じて拡張
+- トレースとメトリクスは最小から開始し、ボトルネック観測後に強化

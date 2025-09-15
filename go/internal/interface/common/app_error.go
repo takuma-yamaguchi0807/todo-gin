@@ -1,6 +1,9 @@
-package apperror
+package common
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+)
 
 // Kind はアプリケーションエラーの種別。
 type Kind string
@@ -56,4 +59,52 @@ func StatusCode(err error) int {
         }
     }
     return http.StatusInternalServerError
+}
+
+// StatusCodeByKind は Kind を直接 HTTP ステータスに変換する。
+func StatusCodeByKind(k Kind) int {
+    switch k {
+    case Invalid:
+        return http.StatusBadRequest
+    case NotFound:
+        return http.StatusNotFound
+    case Conflict:
+        return http.StatusConflict
+    case Unauthorized:
+        return http.StatusUnauthorized
+    case Forbidden:
+        return http.StatusForbidden
+    default:
+        return http.StatusInternalServerError
+    }
+}
+
+// JSON は Kind, Field, Msg を受け取り、
+// *gin.Context.JSON にそのまま渡せる (status, payload) を返す。
+func JSON(k Kind, field, msg string) (int, map[string]any) {
+    payload := map[string]any{
+        "error": string(k),
+        "msg":   msg,
+    }
+    if field != "" {
+        payload["field"] = field
+    }
+    return StatusCodeByKind(k), payload
+}
+
+// ToJSON はエラー情報と任意の追加データを JSON に変換する。
+// 引数 data には、付加情報（任意）を渡せる。nil の場合は出力しない。
+// 返却値は JSON のバイト列とエラー。
+func (e *Error) ToJSON(data any) ([]byte, error) {
+    payload := map[string]any{
+        "error": string(e.Kind),
+        "msg":   e.Msg,
+    }
+    if e.Field != "" {
+        payload["field"] = e.Field
+    }
+    if data != nil {
+        payload["data"] = data
+    }
+    return json.Marshal(payload)
 }

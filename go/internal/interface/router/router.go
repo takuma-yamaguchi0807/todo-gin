@@ -1,14 +1,14 @@
 package router
 
 import (
-    "net/http"
+	"net/http"
 
-    "github.com/gin-gonic/gin"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/controller"
+	"github.com/gin-gonic/gin"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/controller"
 )
 
-// SetupRoutes registers health and todos endpoints and binds handlers.
-func SetupRoutes(r *gin.Engine, tc *controller.TodoController) {
+// SetupRoutes registers health, auth, and todos endpoints and binds handlers.
+func SetupRoutes(r *gin.Engine, tc *controller.TodoController, uc *controller.UserController) {
     // Health check
     r.GET("/healthz", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -29,14 +29,26 @@ func SetupRoutes(r *gin.Engine, tc *controller.TodoController) {
         })
     })
 
-    // Todos
+    // Auth
+    auth := r.Group("/auth")
+    {
+        // ユーザ登録
+        auth.POST("/signup", uc.Signup)
+        // ログイン
+        auth.POST("/login", uc.Login)
+    }
+    
     todos := r.Group("/todos")
     {
-        // ユーザーIDでTodo一覧を取得（パスパラメータ）
-        todos.GET("/users/:userId", tc.Get)
-        todos.GET(":id", tc.Detail)
+        // 一覧（ログインユーザのスコープで返却想定）
+        todos.GET("", tc.Get)
+        // 詳細
+        todos.GET("/:id", tc.Detail)
+        // 作成
         todos.POST("", tc.Create)
-        todos.PUT(":id", tc.Update)
-        todos.DELETE(":id", tc.Delete)
+        // 更新（全項目更新）
+        todos.PUT("/:id", tc.Update)
+        // 削除（JSON body で id 配列を受け付ける）
+        todos.DELETE("", tc.Delete)
     }
 }

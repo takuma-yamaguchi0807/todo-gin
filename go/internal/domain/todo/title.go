@@ -1,10 +1,10 @@
 package todo
 
 import (
-    "strings"
-    "unicode/utf8"
+	"strings"
+	"unicode/utf8"
 
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/app/apperror"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/common"
 )
 
 type Title struct {
@@ -15,7 +15,7 @@ func NewTitle(v string) (Title, error) {
     v = strings.TrimSpace(v)
     length := utf8.RuneCountInString(v)
     if length == 0 || length > 100 {
-        return Title{}, apperror.InvalidErr("todo.title", "title must be 1-100 chars", nil)
+        return Title{}, common.InvalidErr("todo.title", "title must be 1-100 chars", nil)
     }
     return Title{value: v}, nil
 }

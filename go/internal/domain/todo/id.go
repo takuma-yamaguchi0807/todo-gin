@@ -1,8 +1,8 @@
 package todo
 
 import (
-    "github.com/google/uuid"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/app/apperror"
+	"github.com/google/uuid"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/common"
 )
 
 type Id struct {
@@ -12,7 +12,7 @@ type Id struct {
 func NewId(v string) (Id, error){
     id, err := uuid.Parse(v)
     if err != nil {
-        return Id{}, apperror.InvalidErr("todo.id", "invalid uuid format", err)
+        return Id{}, common.InvalidErr("todo.id", "invalid uuid format", err)
     }
     return Id{value: id}, nil
 }

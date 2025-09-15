@@ -1,8 +1,9 @@
 package todo
 
 import (
-    "fmt"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/app/apperror"
+	"fmt"
+
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/common"
 )
 
 type Status string
@@ -18,7 +19,7 @@ func NewStatus(v string) (Status, error) {
     case Wait,Doing,Done:
         return Status(v), nil
     default:
-        return "", apperror.InvalidErr("todo.status", fmt.Sprintf("invalid status: %s", v), nil)
+        return "", common.InvalidErr("todo.status", fmt.Sprintf("invalid status: %s", v), nil)
     }
 }
 

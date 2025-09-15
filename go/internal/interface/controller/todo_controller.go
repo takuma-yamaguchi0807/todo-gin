@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/app/apperror"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/common"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/dto"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/usecase"
 )
@@ -27,7 +27,7 @@ func (tc *TodoController) Get(c *gin.Context){
     // ユースケースへリクエストを渡して実行
     items, err := tc.getUC.Execute(c.Request.Context(), req)
     if err != nil {
-        c.JSON(apperror.StatusCode(err), gin.H{"error": err.Error()})
+        c.JSON(common.StatusCode(err), gin.H{"error": err.Error()})
         return
     }
     c.JSON(http.StatusOK, gin.H{"items": items})
@@ -60,8 +60,8 @@ func (tc *TodoController) Delete(c *gin.Context){
     //requestの内容をdtoにconvert
     var req dto.TodoDeleteRequest
     if err := c.ShouldBindJSON(&req); err != nil {
-        appErr := apperror.InvalidErr("body", "invalid request body", err)
-        c.JSON(apperror.StatusCode(appErr), gin.H{
+        appErr := common.InvalidErr("body", "invalid request body", err)
+        c.JSON(common.StatusCode(appErr), gin.H{
             "error": appErr.Kind,
             "field": appErr.Field,
             "msg":   appErr.Msg,
@@ -71,8 +71,8 @@ func (tc *TodoController) Delete(c *gin.Context){
     //execute実行
     err := tc.deleteUC.Execute(c.Request.Context(),req)
     if err != nil {
-        c.JSON(apperror.StatusCode(err), gin.H{"error": err.Error()})
+        c.JSON(common.StatusCode(err), gin.H{"error": err.Error()})
         return
     }
-    c.JSON(http.StatusNoContent,nil)
+    c.JSON(http.StatusOK,nil)
 }
