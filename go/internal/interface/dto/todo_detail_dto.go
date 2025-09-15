@@ -3,7 +3,8 @@ package dto
 import "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
 
 type TodoDetailRequest struct {
-	ID string `json:"id"`
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
 }
 
 type TodoDetailResponse struct {

@@ -4,13 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/user"
-)
-
-// TodoRepositoryImpl is a minimal database/sql implementation.
-// Query details can be extended as needed.
+) // Query details can be extended as needed.
 type TodoRepositoryImpl struct{
     db *sql.DB
 }
@@ -20,7 +18,30 @@ func NewTodoRepositoryImpl(db *sql.DB) todo.TodoRepository {
 }
 
 func (r *TodoRepositoryImpl) Save(ctx context.Context, t *todo.Todo) error {
-    return errors.New("TodoRepositoryImpl.Save not implemented")
+    const q = `
+        INSERT INTO todo (
+            id,
+            user_id,
+            title,
+            description,
+            status,
+            due_date
+        ) VALUES ($1, $2, $3, NULLIF($4, ''), $5, NULLIF($6, ''))
+    `
+    id := t.ID().UUID()
+    uid := t.UserID().UUID()
+    ttl := t.Title().String()
+    descPtr := t.Description().Ptr()
+    st := t.Status().String()
+    duePtr := t.DueDate().StringPtr()
+
+    var desc any
+    if descPtr != nil { desc = *descPtr } else { desc = nil }
+    var due any
+    if duePtr != nil { due = *duePtr } else { due = nil }
+
+    _, err := r.db.ExecContext(ctx, q, id, uid, ttl, desc, st, due)
+    return err
 }
 
 func (r *TodoRepositoryImpl) FindById(ctx context.Context, id todo.Id) (*todo.Todo, error) {
@@ -126,9 +147,31 @@ func (r *TodoRepositoryImpl) scanTodo(rs rowScanner) (*todo.Todo, error) {
 }
 
 func (r *TodoRepositoryImpl) Update(ctx context.Context, id todo.Id) error {
-    return errors.New("TodoRepositoryImpl.Update not implemented")
+    const q = `UPDATE todo SET updated_at = NOW() WHERE id = $1`
+    res, err := r.db.ExecContext(ctx, q, id.UUID())
+    if err != nil { return err }
+    n, err := res.RowsAffected()
+    if err != nil { return err }
+    if n == 0 { return errors.New("todo not found") }
+    return nil
 }
 
 func (r *TodoRepositoryImpl) DeleteByIds(ctx context.Context, ids []todo.Id) error {
-    return errors.New("TodoRepositoryImpl.DeleteByIds not implemented")
+    if len(ids) == 0 { return nil }
+    placeholders := make([]string, 0, len(ids))
+    args := make([]any, 0, len(ids))
+    for i, id := range ids {
+        placeholders = append(placeholders, "$"+strconv.Itoa(i+1))
+        args = append(args, id.UUID())
+    }
+    q := "DELETE FROM todo WHERE id IN (" + join(placeholders, ",") + ")"
+    _, err := r.db.ExecContext(ctx, q, args...)
+    return err
+}
+
+func join(ss []string, sep string) string {
+    if len(ss) == 0 { return "" }
+    out := ss[0]
+    for i := 1; i < len(ss); i++ { out += sep + ss[i] }
+    return out
 }

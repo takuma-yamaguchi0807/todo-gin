@@ -89,7 +89,7 @@ CREATE INDEX idx_todos_user_id ON todos(user_id);
 
 - POST `/auth/signup`
   - 入力: `{ "email": string, "password": string }`
-  - 出力: `{ "access_token": string }`（登録と同時にログイン）
+  - 出力: 201 返すだけ
 - POST `/auth/login`
   - 入力: `{ "email": string, "password": string }`
   - 出力: `{ "access_token": string }`
@@ -105,9 +105,11 @@ CREATE INDEX idx_todos_user_id ON todos(user_id);
 - GET `/todos/{id}`
   - ログインユーザの所有物のみ
 - PUT `/todos/{id}`（全項目更新; 最小構成）
+  - 出力:200 返すだけ
 - DELETE `/todos`
   - 入力: `{ "ids": string[] }`
   - 複数 ID を受け取り削除（単一削除も配列 1 要素で対応）。`DELETE` の JSON ボディを受け付けるポリシー
+  - 出力:204 を返すだけ
 
 ステータスコード: 2xx 成功、4xx バリデーション / 認可エラー、5xx サーバエラー
 
@@ -214,10 +216,12 @@ go run .
 
   - [x] Todos: 一覧取得（GET `/todos`）
   - [x] Todos: 詳細取得（GET `/todos/{id}`）
-  - [ ] Todos: 作成（POST `/todos`）
-  - [ ] Todos: 更新（PUT `/todos/{id}`）
-  - [ ] Todos: 一括削除（DELETE `/todos` with body `{ ids: string[] }`）
-  - [ ] 認証: JWT 発行/検証（HS256）実装とミドルウェア適用
+  - [x] Todos: 作成（POST `/todos`）
+  - [x] Todos: 更新（PUT `/todos/{id}`）
+  - [x] Todos: 一括削除（DELETE `/todos` with body `{ ids: string[] }`）
+  - [x] login: ログイン（POST `/login`）
+  - [x] singup: ユーザ登録（POST `/signup`）
+  - [x] 認証: JWT 発行/検証（HS256）実装とミドルウェア適用
   - [ ] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
   - [ ] OpenTelemetry 設定（Gin と DB のトレース、OTLP Exporter）
   - [ ] Prometheus メトリクス公開（`/metrics`）

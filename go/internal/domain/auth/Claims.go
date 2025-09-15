@@ -22,3 +22,7 @@ func NewClaimsWithTTL(userID string, ttl time.Duration) Claims {
 		ExpiresAt: time.Now().Add(ttl),
 	}
 }
+
+// UserIDString はユーザIDを返します。
+// 将来、ユーザIDの内部表現が変わっても呼び出し側を影響させないためのアクセサです。
+func (c Claims) UserIDString() string { return c.UserID }

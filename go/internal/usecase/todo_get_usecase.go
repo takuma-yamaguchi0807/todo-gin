@@ -21,6 +21,7 @@ func NewTodoGetUsecase(repo todo.TodoRepository) *TodoGetUsecase {
 // Execute はユーザーに紐づく一覧取得を行い、DTO を返却する。
 // Execute は引数のリクエストに含まれる UserID に紐づく Todo 一覧を返します。
 func (uc *TodoGetUsecase) Execute(ctx context.Context, req dto.TodoGetRequest) ([]dto.TodoGetResponse, error) {
+    // UserID は JWT クレームから注入され、JSON には含めない
     uid, err := user.NewId(req.UserID)
     if err != nil {
         return []dto.TodoGetResponse{}, err

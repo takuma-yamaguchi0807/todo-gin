@@ -1,14 +1,13 @@
 package dto
 
 type TodoUpdateRequest struct {
-	id          string `json:"id"`
-	userId      string `json:"user_id"`
-	title       string `json:"title"`
-	description string `json:"description"`
-	status      string `json:"status"`
-	dueDate     string `json:"due_date"`
+	ID          string  `json:"id"`
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	Status      *string `json:"status"`
+	DueDate     *string `json:"due_date"`
+	UserID      string  `json:"user_id"`
 }
 
 type TodoUpdateResponse struct {
-	
 }

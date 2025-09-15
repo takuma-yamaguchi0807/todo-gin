@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/dto"
 )
@@ -19,6 +18,11 @@ func NewTodoDeleteUsecase(repo todo.TodoRepository) *TodoDeleteUsecase {
 }
 
 func (uc *TodoDeleteUsecase) Execute(ctx context.Context, req dto.TodoDeleteRequest) error {
-    id, _ := todo.NewId(uuid.NewString())
-    return uc.repo.DeleteByIds(ctx, []todo.Id{id})
+    ids := make([]todo.Id, 0, len(req.IDs))
+    for _, idStr := range req.IDs {
+        id, err := todo.NewId(idStr)
+        if err != nil { return err }
+        ids = append(ids, id)
+    }
+    return uc.repo.DeleteByIds(ctx, ids)
 }

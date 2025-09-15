@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/user"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/common"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/dto"
 )
@@ -24,6 +25,14 @@ func (uc *TodoDetailUsecase) Execute(ctx context.Context, req dto.TodoDetailRequ
 	t, err := uc.repo.FindById(ctx, id)
 	if err != nil {
 		return dto.TodoDetailResponse{}, common.NotFoundErr("todo", req.ID)
+	}
+	// 所有者チェック（JWTの userId と一致しない場合は 404 と同等の扱いにする）
+	if req.UserID != "" {
+		uid, err := user.NewId(req.UserID)
+		if err != nil { return dto.TodoDetailResponse{}, err }
+		if t.UserID().String() != uid.String() {
+			return dto.TodoDetailResponse{}, common.NotFoundErr("todo", req.ID)
+		}
 	}
 	return dto.NewTodoDetailResponseFromDomain(*t), nil
 }

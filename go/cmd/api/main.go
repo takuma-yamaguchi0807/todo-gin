@@ -28,7 +28,13 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-    router.SetupRoutes(r, tc, uc)
+    // TokenService は buildDependency から返す設計に変えることも可能だが、
+    // 現状は main 内で生成したものをここで再生成して渡すより、buildDependency の戻り値拡張が望ましい。
+    // シンプルにするため、ここでは再取得する。
+    secret := config.GetenvOrDefault("JWT_SECRET", "changeme-secret")
+    issuer := config.GetenvOrDefault("JWT_ISSUER", "todo-gin")
+    jwtGen := infraauth.NewHS256Generator(secret, issuer)
+    router.SetupRoutes(r, tc, uc, jwtGen)
 
 	// サーバー起動
 	r.Run(":8080")

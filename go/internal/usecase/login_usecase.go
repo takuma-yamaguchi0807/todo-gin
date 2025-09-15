@@ -12,11 +12,11 @@ import (
 // UserLoginUsecase はユーザログインのユースケースです。
 type UserLoginUsecase struct{
 	repo user.Repository
-	tok  domainauth.TokenGenerator
+	tok  domainauth.TokenService
 }
 
 // NewUserLoginUsecase は UserLoginUsecase のコンストラクタです。
-func NewUserLoginUsecase(repo user.Repository, tok domainauth.TokenGenerator) *UserLoginUsecase {
+func NewUserLoginUsecase(repo user.Repository, tok domainauth.TokenService) *UserLoginUsecase {
 	return &UserLoginUsecase{repo: repo, tok: tok}
 }
 

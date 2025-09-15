@@ -4,11 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	domainauth "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/auth"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/controller"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/middleware"
 )
 
 // SetupRoutes registers health, auth, and todos endpoints and binds handlers.
-func SetupRoutes(r *gin.Engine, tc *controller.TodoController, uc *controller.UserController) {
+func SetupRoutes(r *gin.Engine, tc *controller.TodoController, uc *controller.UserController, ts domainauth.TokenService) {
     // Health check
     r.GET("/healthz", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -39,6 +41,8 @@ func SetupRoutes(r *gin.Engine, tc *controller.TodoController, uc *controller.Us
     }
     
     todos := r.Group("/todos")
+    // 認証必須: すべてのTODO APIでJWT検証を最初に実施（ボディ検証より前）
+    todos.Use(middleware.AuthRequired(ts))
     {
         // 一覧（ログインユーザのスコープで返却想定）
         todos.GET("", tc.Get)
