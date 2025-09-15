@@ -19,7 +19,7 @@ func NewStatus(v string) (Status, error) {
     case Wait,Doing,Done:
         return Status(v), nil
     default:
-        return "", common.InvalidErr("todo.status", fmt.Sprintf("invalid status: %s", v), nil)
+        return "", common.InvalidErr("todo.status", fmt.Sprintf("invalid status: %s", v))
     }
 }
 

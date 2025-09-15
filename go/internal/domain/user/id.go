@@ -12,7 +12,7 @@ type Id struct {
 func NewId(v string) (Id, error) {
     id, err := uuid.Parse(v)
     if err != nil {
-        return Id{}, common.InvalidErr("user.id", "invalid uuid format", err)
+        return Id{}, common.InvalidErr("user.id", "invalid uuid format")
     }
     return Id{value: id}, nil
 }

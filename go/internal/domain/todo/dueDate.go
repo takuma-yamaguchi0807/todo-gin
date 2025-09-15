@@ -17,7 +17,7 @@ func NewDueDate(s string) (DueDate,error){
     }
     parsed, err := time.Parse("2006-01-02", s)
     if err != nil {
-        return DueDate{}, common.InvalidErr("todo.due_date", "invalid date format. must be yyyy-mm-dd", err)
+        return DueDate{}, common.InvalidErr("todo.due_date", "invalid date format. must be yyyy-mm-dd")
     }
     return DueDate{value: &parsed}, nil
 }

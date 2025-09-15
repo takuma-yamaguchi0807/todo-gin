@@ -11,13 +11,14 @@ import (
 
 type TodoController struct{
     getUC    *usecase.TodoGetUsecase
+    detailUC *usecase.TodoDetailUsecase
     createUC *usecase.TodoCreateUsecase
     updateUC *usecase.TodoUpdateUsecase
     deleteUC *usecase.TodoDeleteUsecase
 }
 
-func NewTodoController(getUC *usecase.TodoGetUsecase, createUC *usecase.TodoCreateUsecase, updateUC *usecase.TodoUpdateUsecase, deleteUC *usecase.TodoDeleteUsecase) *TodoController {
-    return &TodoController{getUC: getUC, createUC: createUC, updateUC: updateUC, deleteUC: deleteUC}
+func NewTodoController(getUC *usecase.TodoGetUsecase, detailUC *usecase.TodoDetailUsecase, createUC *usecase.TodoCreateUsecase, updateUC *usecase.TodoUpdateUsecase, deleteUC *usecase.TodoDeleteUsecase) *TodoController {
+    return &TodoController{getUC: getUC, detailUC: detailUC, createUC: createUC, updateUC: updateUC, deleteUC: deleteUC}
 }
 
 func (tc *TodoController) Get(c *gin.Context){
@@ -27,15 +28,23 @@ func (tc *TodoController) Get(c *gin.Context){
     // ユースケースへリクエストを渡して実行
     items, err := tc.getUC.Execute(c.Request.Context(), req)
     if err != nil {
-        c.JSON(common.StatusCode(err), gin.H{"error": err.Error()})
+        status, payload := common.JSONFromError(err)
+        c.JSON(status, payload)
         return
     }
-    c.JSON(http.StatusOK, gin.H{"items": items})
+    // トップレベルを配列にする
+    c.JSON(http.StatusOK, items)
 }
 
 func (tc *TodoController) Detail(c *gin.Context){
-    // TODO: id パラメータでの個別取得用のUCに差し替える
-    c.JSON(http.StatusOK, gin.H{"id": c.Param("id")})
+    req := dto.TodoDetailRequest{ID: c.Param("id")}
+    res, err := tc.detailUC.Execute(c.Request.Context(), req)
+    if err != nil {
+        status, payload := common.JSONFromError(err)
+        c.JSON(status, payload)
+        return
+    }
+    c.JSON(http.StatusOK, res)
 }
 
 func (tc *TodoController) Create(c *gin.Context){
@@ -60,18 +69,16 @@ func (tc *TodoController) Delete(c *gin.Context){
     //requestの内容をdtoにconvert
     var req dto.TodoDeleteRequest
     if err := c.ShouldBindJSON(&req); err != nil {
-        appErr := common.InvalidErr("body", "invalid request body", err)
-        c.JSON(common.StatusCode(appErr), gin.H{
-            "error": appErr.Kind,
-            "field": appErr.Field,
-            "msg":   appErr.Msg,
-        })
+        appErr := common.InvalidErr("body", "invalid request body")
+        status, payload := common.JSONFromError(appErr)
+        c.JSON(status, payload)
         return
     }
     //execute実行
     err := tc.deleteUC.Execute(c.Request.Context(),req)
     if err != nil {
-        c.JSON(common.StatusCode(err), gin.H{"error": err.Error()})
+        status, payload := common.JSONFromError(err)
+        c.JSON(status, payload)
         return
     }
     c.JSON(http.StatusOK,nil)

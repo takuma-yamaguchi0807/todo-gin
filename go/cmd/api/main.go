@@ -42,10 +42,11 @@ func buildDependency() (*controller.TodoController, *controller.UserController) 
     // dependency todo
     todoRepo := db.NewTodoRepositoryImpl(sdb)
     getUC := usecase.NewTodoGetUsecase(todoRepo)
+    detailUC := usecase.NewTodoDetailUsecase(todoRepo)
     createUC := usecase.NewTodoCreateUsecase(todoRepo)
     updateUC := usecase.NewTodoUpdateUsecase(todoRepo)
     deleteUC := usecase.NewTodoDeleteUsecase(todoRepo)
-    todoController := controller.NewTodoController(getUC, createUC, updateUC, deleteUC)
+    todoController := controller.NewTodoController(getUC, detailUC, createUC, updateUC, deleteUC)
 
     // dependency user
     userRepo := db.NewUserRepositoryImpl(sdb)

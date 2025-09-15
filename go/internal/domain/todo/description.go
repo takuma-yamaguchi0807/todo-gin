@@ -15,7 +15,7 @@ func NewDescription(v string) (Description, error) {
     v = strings.TrimSpace(v)
     length := utf8.RuneCountInString(v)
     if length > 300 {
-        return Description{}, common.InvalidErr("todo.description", "description must be 0-300 chars", nil)
+        return Description{}, common.InvalidErr("todo.description", "description must be 0-300 chars")
     }
     return Description{value: v}, nil
 }

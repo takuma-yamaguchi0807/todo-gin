@@ -18,7 +18,7 @@ type Password struct {
 //  - 英大文字, 英小文字, 数字, 記号（その他）
 func NewPassword(v string) (Password, error) {
 	if len([]rune(v)) < 8 {
-		return Password{}, common.InvalidErr("user.password", "password must be at least 8 characters", nil)
+		return Password{}, common.InvalidErr("user.password", "password must be at least 8 characters")
 	}
 	var hasUpper, hasLower, hasDigit, hasSymbol bool
 	for _, r := range v {
@@ -40,7 +40,7 @@ func NewPassword(v string) (Password, error) {
 	if hasDigit { kinds++ }
 	if hasSymbol { kinds++ }
 	if kinds < 2 {
-		return Password{}, common.InvalidErr("user.password", "password must include at least 2 of upper/lower/digit/symbol", nil)
+		return Password{}, common.InvalidErr("user.password", "password must include at least 2 of upper/lower/digit/symbol")
 	}
 	return Password{value: v}, nil
 }

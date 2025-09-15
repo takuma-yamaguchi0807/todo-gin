@@ -18,7 +18,7 @@ type Email struct {
 func NewEmail(v string) (Email, error) {
 	addr, err := mail.ParseAddress(v)
 	if err != nil || addr == nil || addr.Address != v {
-		return Email{}, common.InvalidErr("user.email", "invalid email format", err)
+		return Email{}, common.InvalidErr("user.email", "invalid email format")
 	}
 	return Email{value: v}, nil
 }

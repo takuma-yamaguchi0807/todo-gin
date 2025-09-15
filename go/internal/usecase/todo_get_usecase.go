@@ -1,11 +1,11 @@
 package usecase
 
 import (
-    "context"
+	"context"
 
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/user"
-    "github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/dto"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/todo"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/domain/user"
+	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/interface/dto"
 )
 
 // TodoGetUsecase は参照系のユースケース。
@@ -23,29 +23,12 @@ func NewTodoGetUsecase(repo todo.TodoRepository) *TodoGetUsecase {
 func (uc *TodoGetUsecase) Execute(ctx context.Context, req dto.TodoGetRequest) ([]dto.TodoGetResponse, error) {
     uid, err := user.NewId(req.UserID)
     if err != nil {
-        return nil, err
+        return []dto.TodoGetResponse{}, err
     }
     items, err := uc.repo.FindByUser(ctx, uid)
     if err != nil {
-        return nil, err
+        return []dto.TodoGetResponse{}, err
     }
 
-    res := make([]dto.TodoGetResponse, 0, len(items))
-    for _, t := range items {
-        idStr := t.ID().String()
-        userStr := t.UserID().String()
-        titleStr := t.Title().String()
-        descPtr := t.Description().Ptr()
-        statusStr := t.Status().String()
-        duePtr := t.DueDate().StringPtr()
-        res = append(res, dto.TodoGetResponse{
-            ID:     idStr,
-            UserID: userStr,
-            Title:  titleStr,
-            Description: descPtr,
-            Status:      &statusStr,
-            DueDate:     duePtr,
-        })
-    }
-    return res, nil
+    return dto.NewTodoGetResponseList(items), nil
 }

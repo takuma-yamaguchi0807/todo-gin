@@ -17,52 +17,12 @@ const (
     Internal    Kind = "internal"      // サーバ内部（500）
 )
 
-// Error はアプリケーションで用いる標準エラー。
-type Error struct {
-    Kind   Kind   // エラー種別
-    Msg    string // 表示用メッセージ（クライアント向けに安全な内容）
-    Field  string // 入力値に紐づくフィールド名（任意）
-    cause  error  // 元エラー（任意）
-}
+// StatusCode は HTTP ステータスコードのエイリアス。
+// http.StatusXXX と互換性を保つため、int の型エイリアスとする。
+type StatusCode = int
 
-func (e *Error) Error() string { return e.Msg }
-func (e *Error) Unwrap() error { return e.cause }
-
-// New は任意のエラーを生成する。
-func New(k Kind, field, msg string, cause error) *Error {
-    return &Error{Kind: k, Field: field, Msg: msg, cause: cause}
-}
-
-// Helpers
-func InvalidErr(field, msg string, cause error) *Error { return New(Invalid, field, msg, cause) }
-func NotFoundErr(resource, id string, cause error) *Error {
-    return New(NotFound, resource, "resource not found", cause)
-}
-func ConflictErr(field, msg string, cause error) *Error { return New(Conflict, field, msg, cause) }
-
-// StatusCode はHTTPステータスへマッピングする。
-func StatusCode(err error) int {
-    if e, ok := err.(*Error); ok {
-        switch e.Kind {
-        case Invalid:
-            return http.StatusBadRequest
-        case NotFound:
-            return http.StatusNotFound
-        case Conflict:
-            return http.StatusConflict
-        case Unauthorized:
-            return http.StatusUnauthorized
-        case Forbidden:
-            return http.StatusForbidden
-        default:
-            return http.StatusInternalServerError
-        }
-    }
-    return http.StatusInternalServerError
-}
-
-// StatusCodeByKind は Kind を直接 HTTP ステータスに変換する。
-func StatusCodeByKind(k Kind) int {
+// Status は Kind から HTTP ステータスコードを得る。
+func (k Kind) Status() StatusCode {
     switch k {
     case Invalid:
         return http.StatusBadRequest
@@ -79,6 +39,29 @@ func StatusCodeByKind(k Kind) int {
     }
 }
 
+// Error はアプリケーションで用いる標準エラー。
+type Error struct {
+    Kind   Kind   // エラー種別
+    Msg    string // 表示用メッセージ（クライアント向けに安全な内容）
+    Field  string // 入力値に紐づくフィールド名（任意）
+}
+
+func (e *Error) Error() string { return e.Msg }
+
+// New は任意のエラーを生成する。
+func New(k Kind, field, msg string) *Error {
+    return &Error{Kind: k, Field: field, Msg: msg}
+}
+
+// Helpers
+func InvalidErr(field, msg string) *Error { return New(Invalid, field, msg) }
+func NotFoundErr(resource, id string) *Error {
+    return New(NotFound, resource, "resource not found")
+}
+func ConflictErr(field, msg string) *Error { return New(Conflict, field, msg) }
+
+// StatusCode/StatusCodeByKind は Kind.Status へ集約したため削除
+
 // JSON は Kind, Field, Msg を受け取り、
 // *gin.Context.JSON にそのまま渡せる (status, payload) を返す。
 func JSON(k Kind, field, msg string) (int, map[string]any) {
@@ -89,7 +72,7 @@ func JSON(k Kind, field, msg string) (int, map[string]any) {
     if field != "" {
         payload["field"] = field
     }
-    return StatusCodeByKind(k), payload
+    return k.Status(), payload
 }
 
 // ToJSON はエラー情報と任意の追加データを JSON に変換する。
@@ -107,4 +90,32 @@ func (e *Error) ToJSON(data any) ([]byte, error) {
         payload["data"] = data
     }
     return json.Marshal(payload)
+}
+
+// JSONFromError は任意の error から、標準化された (status, payload) を生成する。
+// *Error の場合は Kind/Msg/Field を利用し、その他は internal エラーとして扱う。
+func JSONFromError(err error) (int, map[string]any) {
+    if err == nil {
+        //エラーがないのに、呼ばれてるのは不正状態なので、internal エラーを返す
+        return http.StatusInternalServerError, map[string]any{
+            "error": string(Internal),
+            "msg":   "internal server error",
+        }
+    }
+    if e, ok := err.(*Error); ok {
+        status := e.Kind.Status()
+        payload := map[string]any{
+            "error": string(e.Kind),
+            "msg":   e.Msg,
+        }
+        if e.Field != "" {
+            payload["field"] = e.Field
+        }
+        return status, payload
+    }
+    // 非アプリケーションエラーは internal に丸める
+    return http.StatusInternalServerError, map[string]any{
+        "error": string(Internal),
+        "msg":   err.Error(),
+    }
 }
