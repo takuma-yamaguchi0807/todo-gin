@@ -27,7 +27,6 @@ graph TD
   ALB --> ECS_Fargate
   ECS_Fargate --> RDS_PostgreSQL
   ECS_Fargate --> Prometheus_Exporter
-  ECS_Fargate --> OpenTelemetry_Exporter
   Grafana --> Prometheus
   ECR --> ECS_Fargate
 ```
@@ -142,7 +141,6 @@ CREATE INDEX idx_todos_user_id ON todos(user_id);
 
 ## オブザーバビリティ（最小）
 
-- OpenTelemetry: Gin ハンドラと DB をトレース（OTLP Exporter）
 - Prometheus: `/metrics` を公開（ECS タスクからスクレイプ可能なネットワークに配置）
 - Grafana: ダッシュボードで可視化（Prometheus をデータソース）
 
@@ -151,7 +149,6 @@ CREATE INDEX idx_todos_user_id ON todos(user_id);
 - PostgreSQL: `postgres:16`
 - Prometheus: `prom/prometheus`
 - Grafana: `grafana/grafana`
-- 任意: OpenTelemetry Collector: `otel/opentelemetry-collector`
 
 PostgreSQL 起動例（参考）
 
@@ -227,7 +224,8 @@ go run .
 
 - フロントエンド（Next.js）
 
-  - [ ] 初期セットアップ（TypeScript, ESLint/Prettier, ディレクトリ構成）
+  - [x] 初期セットアップ（TypeScript, ESLint/Prettier, ディレクトリ構成）
+  - [ ] ホーム画面作成
   - [ ] 認証画面（ログイン/サインアップ）
   - [ ] TODO 一覧（取得・選択・一括削除）
   - [ ] TODO 詳細（表示・更新）
