@@ -15,7 +15,7 @@ Go + Gin をバックエンド、TypeScript + React + Next をフロント、AWS
 - 認証: JWT（HS256）でログイン状態を管理（`sub` からユーザ ID を特定）
 - インフラ: S3 + CloudFront（SPA 配信）、ALB + ECS Fargate（API）、RDS PostgreSQL（DB）、ECR（イメージ保管）
 - CI/CD: GitHub Actions でビルド → ECR へ push → ECS を更新（詳細のジョブ例は割愛）
-- オブザーバビリティ: OpenTelemetry + Prometheus + Grafana（最小）
+- オブザーバビリティ: Prometheus + Grafana（最小）
 
 ## アーキテクチャ図
 
@@ -223,8 +223,7 @@ go run .
   - [x] singup: ユーザ登録（POST `/signup`）
   - [x] 認証: JWT 発行/検証（HS256）実装とミドルウェア適用
   - [x] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
-  - [ ] OpenTelemetry 設定（Gin と DB のトレース、OTLP Exporter）
-  - [ ] Prometheus メトリクス公開（`/metrics`）
+  - [x] Prometheus メトリクス公開（`/metrics`）
 
 - フロントエンド（Next.js）
 
