@@ -222,7 +222,7 @@ go run .
   - [x] login: ログイン（POST `/login`）
   - [x] singup: ユーザ登録（POST `/signup`）
   - [x] 認証: JWT 発行/検証（HS256）実装とミドルウェア適用
-  - [ ] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
+  - [x] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
   - [ ] OpenTelemetry 設定（Gin と DB のトレース、OTLP Exporter）
   - [ ] Prometheus メトリクス公開（`/metrics`）
 
