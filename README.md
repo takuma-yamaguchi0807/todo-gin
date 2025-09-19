@@ -27,8 +27,8 @@ graph TD
   ALB --> ECS_Fargate
   ECS_Fargate --> RDS_PostgreSQL
   ECS_Fargate --> Prometheus_Exporter
-  ECS_Fargate --> PromtailAgent
-  PromtailAgent --> GrafanaLoki
+  ECS_Fargate --> FluentBit
+  FluentBit --> GrafanaLoki
   Grafana --> Prometheus
   Grafana --> GrafanaLoki
   ECR --> ECS_Fargate
@@ -252,7 +252,7 @@ npm run dev
   - [x] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
   - [x] Prometheus メトリクス公開（`/metrics`）
   - [x] アプリログの出力（1 行 JSON: time, level, service, request_id など）
-  - [ ] ドメインの UT 追記
+  - [x] ドメインの UT 追記
 
 - フロントエンド（Next.js）
 
@@ -294,5 +294,5 @@ npm run dev
   - [x] Fluent Bit コンテナ作成
   - [x] docker-compose.yml の用意（最小構成）
   - [ ] GitHub Actions（ビルド →ECR push→ECS デプロイ）
-  - [ ] GitHub Actions (ドメイン UT)
+  - [x] GitHub Actions (ドメイン UT)
   - [x] README の手順更新（起動・環境変数・CI/CD 概要）
