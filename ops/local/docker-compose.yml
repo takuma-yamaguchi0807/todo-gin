@@ -1,0 +1,152 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: todo-pg
+    environment:
+      POSTGRES_DB: todo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - todo-local-postgres:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - todo-local-net
+    # logging:  # fluentd 経由は無効化（tail 方式へ戻す）
+    #   driver: fluentd
+    #   options:
+    #     fluentd-address: "127.0.0.1:7680"
+    #     tag: docker.{{.Name}}
+
+  api:
+    build:
+      context: ../../go
+      dockerfile: Dockerfile
+    container_name: todo-api
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: todo
+      JWT_SECRET: changeme-secret
+      JWT_ISSUER: todo-gin
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - todo-local-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/healthz",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: todo-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - todo-local-net
+    # logging:
+    #   driver: fluentd
+    #   options:
+    #     fluentd-address: "127.0.0.1:7680"
+    #     tag: docker.{{.Name}}
+
+  frontend:
+    build:
+      context: ../../next
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - todo-local-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: todo-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning/:/etc/grafana/provisioning/:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - todo-local-grafana:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - todo-local-net
+    # logging:
+    #   driver: fluentd
+    #   options:
+    #     fluentd-address: "127.0.0.1:7680"
+    #     tag: docker.{{.Name}}
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: todo-loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - todo-local-loki:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - todo-local-net
+    # logging:
+    #   driver: fluentd
+    #   options:
+    #     fluentd-address: "127.0.0.1:7680"
+    #     tag: docker.{{.Name}}
+
+  fluent-bit:
+    image: fluent/fluent-bit:2.2.2
+    container_name: todo-fluent-bit
+    command: ["-c", "/fluent-bit/etc/fluent-bit.conf"]
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+    networks:
+      - todo-local-net
+    # tail 方式ではポート公開は不要
+    # ports:
+    #   - "7680:7680"
+
+volumes:
+  todo-local-postgres:
+    driver: local
+  todo-local-grafana:
+    driver: local
+  todo-local-loki:
+    driver: local
+  todo-local-fluentbit:
+    driver: local
+
+networks:
+  todo-local-net:
+    driver: bridge

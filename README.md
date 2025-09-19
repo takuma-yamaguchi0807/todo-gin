@@ -15,7 +15,7 @@ Go + Gin をバックエンド、TypeScript + React + Next をフロント、AWS
 - 認証: JWT（HS256）でログイン状態を管理（`sub` からユーザ ID を特定）
 - インフラ: S3 + CloudFront（SPA 配信）、ALB + ECS Fargate（API）、RDS PostgreSQL（DB）、ECR（イメージ保管）
 - CI/CD: GitHub Actions でビルド → ECR へ push → ECS を更新（詳細のジョブ例は割愛）
-- オブザーバビリティ: Prometheus + Grafana（最小）
+- オブザーバビリティ: Prometheus + Grafana + Grafana Loki + Fluent Bit
 
 ## アーキテクチャ図
 
@@ -27,7 +27,10 @@ graph TD
   ALB --> ECS_Fargate
   ECS_Fargate --> RDS_PostgreSQL
   ECS_Fargate --> Prometheus_Exporter
+  ECS_Fargate --> PromtailAgent
+  PromtailAgent --> GrafanaLoki
   Grafana --> Prometheus
+  Grafana --> GrafanaLoki
   ECR --> ECS_Fargate
 ```
 
@@ -141,14 +144,16 @@ CREATE INDEX idx_todos_user_id ON todos(user_id);
 
 ## オブザーバビリティ（最小）
 
-- Prometheus: `/metrics` を公開（ECS タスクからスクレイプ可能なネットワークに配置）
-- Grafana: ダッシュボードで可視化（Prometheus をデータソース）
+- メトリクス: Prometheus を利用。ECS タスクが `/metrics` を公開し、Grafana が Prometheus をデータソースとして可視化。
+- ログ: ローカルは Fluent Bit でコンテナ標準出力を収集し Loki へ送信。AWS(ECS/Fargate)では FireLens(Fluent Bit) を利用して標準出力を CloudWatch Logs または Loki に転送する。アプリは 1 行 JSON（`time`,`level`,`service`,`request_id` など）で標準出力に記録する。
 
 ## 必要な Docker コンテナ（ローカル想定）
 
 - PostgreSQL: `postgres:16`
 - Prometheus: `prom/prometheus`
 - Grafana: `grafana/grafana`
+- Grafana Loki: `grafana/loki`
+- Fluent Bit: `fluent/fluent-bit`
 
 PostgreSQL 起動例（参考）
 
@@ -156,7 +161,15 @@ PostgreSQL 起動例（参考）
 docker run --name todo-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=todo -p 5432:5432 -d postgres:16
 ```
 
-Prometheus / Grafana は設定ファイルが必要なため、後日 `docker-compose.yml` を用意します（最小構成）。
+ローカル初期データ（学習用）
+
+- 初期化スクリプト配置先: `ops/local/postgres/initdb/`
+  - スキーマ: `001_schema.sql`
+  - シード: `010_seed.sql`
+- テストユーザ: `test@example.com` / パスワード: `Password1!`
+- 初期 TODO: 2 件（ユーザ所有）
+
+Prometheus / Grafana / Loki / Fluent Bit は設定ファイルが必要なため、`ops/local` に配置し、`ops/local/docker-compose.yml` で参照します。
 
 ## ローカル開発（最小）
 
@@ -182,10 +195,27 @@ JWT_EXPIRES=3600
 
 起動
 
+1. 監視・DB の起動（Docker）
+
+```bash
+docker compose -f ops/local/docker-compose.yml up -d postgres prometheus grafana loki fluent-bit
+```
+
+2. バックエンド API（Go）の起動（ネイティブ）
+
 ```bash
 cd go/cmd/api
 go run .
-# -> http://localhost:8080/healthz 等（実装に応じて）
+# -> http://localhost:8080/healthz, /metrics
+```
+
+3. フロントエンド（Next.js）の起動
+
+```bash
+cd next
+npm install
+npm run dev
+# -> http://localhost:3000 （API 先は NEXT_PUBLIC_API_BASE_URL で上書き可）
 ```
 
 ## インフラ方針（最小）
@@ -221,7 +251,7 @@ go run .
   - [x] 認証: JWT 発行/検証（HS256）実装とミドルウェア適用
   - [x] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
   - [x] Prometheus メトリクス公開（`/metrics`）
-  - [ ] アプリログの出力
+  - [x] アプリログの出力（1 行 JSON: time, level, service, request_id など）
 
 - フロントエンド（Next.js）
 
@@ -236,14 +266,39 @@ go run .
 - インフラ（Terraform / AWS）
 
   - [ ] S3 + CloudFront（SPA 配信）
+  - [ ] VPC（CIDR 設計、名前・タグ）
+  - [ ] パブリック/プライベートサブネット（AZ 分散、命名/タグ）
+  - [ ] インターネットゲートウェイ（IGW）/ ルートテーブル（RT）
+  - [ ] NAT ゲートウェイ（コスト最適化の方針: 1AZ or 各 AZ）
+  - [ ] セキュリティグループ（ALB → ECS、ECS → RDS 最小許可）
+  - [ ] VPC エンドポイント（必要に応じて: ECR, CloudWatch Logs 等）
   - [ ] ECS Fargate + ALB（API）
+  - [ ] FireLens(Fluent Bit) 組み込み（ECS タスク定義: awsfirelens ログドライバ）
+  - [ ] CloudWatch Logs ロググループ設計（保持期間/メトリクスフィルタ）
+  - [ ] Loki 運用方針（ECS or マネージド代替の検討、S3/EFS 永続化）
+  - [ ] Grafana 運用方針（自前/ECS or Amazon Managed Grafana）
+  - [ ] AMP（Amazon Managed Prometheus）/ remote_write の検討（任意）
+  - [ ] IAM 権限設計（ECS タスクロール: Logs/ECR/Secrets、FireLens 出力先）
   - [ ] RDS PostgreSQL（DB）
   - [ ] ECR（コンテナレジストリ）
   - [ ] Secrets Manager（JWT 秘密鍵、DB 接続）
   - [ ] Route53 + ACM（ドメイン/証明書）
 
 - ローカル開発・運用
-  - [ ] Docker コンテナ整備（PostgreSQL、Prometheus、Grafana、任意で OTel Collector）
-  - [ ] docker-compose.yml の用意（最小構成）
+
+  - [x] Postgres コンテナ作成
+  - [x] Prometheus コンテナ作成
+  - [x] Grafana コンテナ作成（Prometheus データソース自動登録、ポート:3001）
+  - [x] Loki コンテナ作成
+  - [x] Fluent Bit コンテナ作成
+  - [x] docker-compose.yml の用意（最小構成）
   - [ ] GitHub Actions（ビルド →ECR push→ECS デプロイ）
-  - [ ] README の手順更新（起動・環境変数・CI/CD 概要）
+  - [x] README の手順更新（起動・環境変数・CI/CD 概要）
+
+- 学習
+  - [ ] prometheus の送れるパラメータと設定を理解する
+  - [ ] grafana の設定とパラメータの受け取り方を理解する
+  - [ ] loki の仕組みと設定を理解する
+  - [ ] fluent bit の仕組みと設定を理解する
+  - [ ] github action の書きかたを理解する cicd 両方
+  - [ ] go で domain の ut だけ、書いてみる。

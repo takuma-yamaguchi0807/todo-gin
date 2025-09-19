@@ -24,7 +24,6 @@ coverage.out
 !env.example
 
 # Local development assets (per README)
-local/
 *.pem
 *.key
 *.crt

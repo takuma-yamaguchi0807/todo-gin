@@ -1,0 +1,33 @@
+{
+  "title": "App Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Go GC Pauses (ms)",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(rate(go_gc_duration_seconds_sum[5m])) / sum(rate(go_gc_duration_seconds_count[5m])) * 1000",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Process CPU Seconds",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "rate(process_cpu_seconds_total[5m])", "refId": "A" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Go Routines",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [{ "expr": "go_goroutines", "refId": "A" }]
+    }
+  ]
+}
