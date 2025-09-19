@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Modal } from '@/components/ui/Modal';
 import { createTodoApi } from '@/lib/apiClient';
+import type { TodoCreateRequest, TodoStatus } from '@/types/todo';
 
 export default function TodoNewPage() {
   const pageStyle: CSSProperties = {
@@ -55,12 +56,15 @@ export default function TodoNewPage() {
             const status = String(fd.get('status') || '');
             const due = String(fd.get('due_date') || '');
             try {
-              const payload: any = { title };
+              const payload: Partial<TodoCreateRequest> & { title: string } = { title };
               if (description) payload.description = description;
-              if (status) payload.status = status;
-              if (due) payload.due_date = due; // フォーマットは最小構成
+              const isTodoStatus = (v: string): v is TodoStatus =>
+                v === 'todo' || v === 'doing' || v === 'done';
+              if (isTodoStatus(status)) payload.status = status;
+              if (due) payload.due_date = due; // yyyy-mm-dd を送信
               const created = await createTodoApi(payload);
-              window.location.href = `/todos/${created.id}`;
+              // 作成後は一覧へ遷移
+              window.location.href = '/todos';
             } catch (err) {
               const eobj = err as Error & { status?: number; kind?: string; field?: string };
               const kind = eobj.kind ?? 'error';
@@ -92,8 +96,8 @@ export default function TodoNewPage() {
           </label>
 
           <label style={labelStyle}>
-            <span>期限（任意・ISO8601想定）</span>
-            <input name="due_date" type="datetime-local" style={inputStyle} />
+            <span>期限（任意）</span>
+            <input name="due_date" type="date" style={inputStyle} />
           </label>
 
           <button type="submit" style={submitStyle}>
@@ -102,7 +106,7 @@ export default function TodoNewPage() {
         </form>
 
         <p style={helperStyle}>
-          <Link href="/">← ホームへ戻る</Link>
+          <Link href="/todos">← 一覧へ戻る</Link>
         </p>
       </section>
       <Modal

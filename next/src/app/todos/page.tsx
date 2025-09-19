@@ -15,15 +15,17 @@ export default function TodoListPage() {
     alignItems: 'center',
     marginBottom: 16,
   };
-  const gridStyle: CSSProperties = {
+  const tableStyle: CSSProperties = {
     width: '100%',
-    display: 'grid',
-    gridTemplateColumns: 'auto 1fr auto auto',
-    gap: 8,
-    alignItems: 'center',
+    borderCollapse: 'collapse',
   };
-  const headerStyle: CSSProperties = { fontWeight: 700 };
-  const buttonStyle: CSSProperties = {
+  const thtdStyle: CSSProperties = {
+    border: '1px solid #e5e7eb',
+    padding: '8px 10px',
+    textAlign: 'left',
+  };
+  const thStyle: CSSProperties = { ...thtdStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
+  const deleteBtnStyle: CSSProperties = {
     padding: '8px 12px',
     borderRadius: 8,
     backgroundColor: '#ef4444',
@@ -31,7 +33,7 @@ export default function TodoListPage() {
     border: 'none',
     cursor: 'pointer',
   };
-  const linkButtonStyle: CSSProperties = {
+  const createLinkStyle: CSSProperties = {
     padding: '8px 12px',
     borderRadius: 8,
     backgroundColor: '#0ea5e9',
@@ -85,7 +87,7 @@ export default function TodoListPage() {
         </label>
         <button
           type="button"
-          style={buttonStyle}
+          style={deleteBtnStyle}
           disabled={selectedIds.length === 0}
           onClick={async () => {
             if (selectedIds.length === 0) return;
@@ -103,7 +105,7 @@ export default function TodoListPage() {
         >
           選択削除
         </button>
-        <Link href="/todos/new" style={linkButtonStyle}>
+        <Link href="/todos/new" style={createLinkStyle}>
           新規作成
         </Link>
       </div>
@@ -113,39 +115,35 @@ export default function TodoListPage() {
       ) : items.length === 0 ? (
         <p>TODOはありません。</p>
       ) : (
-        <div role="table" style={{ display: 'grid', gap: 8 }}>
-          <div role="row" style={gridStyle}>
-            <div role="columnheader" style={headerStyle}>
-              選択
-            </div>
-            <div role="columnheader" style={headerStyle}>
-              タイトル
-            </div>
-            <div role="columnheader" style={headerStyle}>
-              ステータス
-            </div>
-            <div role="columnheader" style={headerStyle}>
-              詳細
-            </div>
-          </div>
-          {items.map((t) => (
-            <div role="row" style={gridStyle} key={t.id}>
-              <div>
-                <input
-                  type="checkbox"
-                  checked={!!checked[t.id]}
-                  onChange={(e) => toggle(t.id, e.currentTarget.checked)}
-                  aria-label={`${t.title} を選択`}
-                />
-              </div>
-              <div>{t.title}</div>
-              <div>{t.status}</div>
-              <div>
-                <Link href={`/todos/${t.id}`}>詳細</Link>
-              </div>
-            </div>
-          ))}
-        </div>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>選択</th>
+              <th style={thStyle}>タイトル</th>
+              <th style={thStyle}>ステータス</th>
+              <th style={thStyle}>詳細</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((t) => (
+              <tr key={t.id}>
+                <td style={thtdStyle}>
+                  <input
+                    type="checkbox"
+                    checked={!!checked[t.id]}
+                    onChange={(e) => toggle(t.id, e.currentTarget.checked)}
+                    aria-label={`${t.title} を選択`}
+                  />
+                </td>
+                <td style={thtdStyle}>{t.title}</td>
+                <td style={thtdStyle}>{t.status}</td>
+                <td style={thtdStyle}>
+                  <Link href={`/todos/${t.id}`}>詳細</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
 
       <Modal

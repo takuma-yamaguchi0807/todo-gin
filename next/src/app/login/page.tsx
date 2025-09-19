@@ -69,7 +69,7 @@ export default function LoginPage() {
               const res = await loginApi({ email, password });
               // Cookieへ保存（SPA同一サイト前提の最小構成）
               document.cookie = `access_token=${encodeURIComponent(res.access_token)}; Path=/; Max-Age=${60 * 60}; SameSite=Lax`;
-              window.location.href = '/';
+              window.location.href = '/todos';
             } catch (err) {
               const eobj = err as Error & { status?: number; kind?: string; field?: string };
               const kind = eobj.kind ?? 'error';

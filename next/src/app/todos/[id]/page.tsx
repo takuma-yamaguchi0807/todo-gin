@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { getTodoDetailApi, updateTodoApi } from '@/lib/apiClient';
-import type { Todo } from '@/types/todo';
+import type { Todo, TodoCreateRequest, TodoStatus } from '@/types/todo';
 
 export default function TodoDetailPage() {
   const pageStyle: CSSProperties = {
@@ -43,6 +43,11 @@ export default function TodoDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const normalizeDate = (v: string | null | undefined): string => {
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    return v.slice(0, 10);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -89,9 +94,11 @@ export default function TodoDetailPage() {
             const status = String(fd.get('status') || '');
             const due = String(fd.get('due_date') || '');
             try {
-              const payload: any = { title };
+              const payload: Partial<TodoCreateRequest> & { title: string } = { title };
               if (description) payload.description = description;
-              if (status) payload.status = status;
+              const isTodoStatus = (v: string): v is TodoStatus =>
+                v === 'todo' || v === 'doing' || v === 'done';
+              if (isTodoStatus(status)) payload.status = status;
               if (due) payload.due_date = due;
               await updateTodoApi(id, payload);
               alert('更新しました');
@@ -137,8 +144,8 @@ export default function TodoDetailPage() {
             <span>期限</span>
             <input
               name="due_date"
-              type="datetime-local"
-              defaultValue={todo.due_date ?? ''}
+              type="date"
+              defaultValue={normalizeDate(todo.due_date)}
               style={inputStyle}
             />
           </label>
@@ -149,7 +156,7 @@ export default function TodoDetailPage() {
         </form>
 
         <p style={helperStyle}>
-          <Link href="/">← ホームへ戻る</Link>
+          <Link href="/todos">← 一覧へ戻る</Link>
         </p>
       </section>
       <Modal
