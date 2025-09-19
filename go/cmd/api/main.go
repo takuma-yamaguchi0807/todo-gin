@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/config"
 	infraauth "github.com/takuma-yamaguchi0807/todo-gin/go/internal/infra/auth"
 	"github.com/takuma-yamaguchi0807/todo-gin/go/internal/infra/db"
@@ -16,9 +17,39 @@ import (
 
 func main() {
 	r := gin.New()
+	// リクエストID付与（ヘッダ優先、無ければ生成）
+	r.Use(func(c *gin.Context) {
+		rid := c.GetHeader("X-Request-Id")
+		if rid == "" {
+			rid = uuid.NewString()
+		}
+		c.Set("request_id", rid)
+		c.Writer.Header().Set("X-Request-Id", rid)
+		c.Next()
+	})
+
+	// 構造化アクセスログ（レベル/サービス/リクエストIDを含む1行JSON）
+	serviceName := config.GetenvOrDefault("SERVICE_NAME", "api")
 	r.Use(gin.LoggerWithFormatter(func(p gin.LogFormatterParams) string {
+		level := "info"
+		if p.StatusCode >= 500 {
+			level = "error"
+		} else if p.StatusCode >= 400 {
+			level = "warn"
+		}
+		var requestID string
+		if p.Keys != nil {
+			if v, ok := p.Keys["request_id"]; ok {
+				if s, sok := v.(string); sok {
+					requestID = s
+				}
+			}
+		}
 		b, _ := json.Marshal(map[string]any{
 			"time":       p.TimeStamp.Format(time.RFC3339Nano),
+			"level":      level,
+			"service":    serviceName,
+			"request_id": requestID,
 			"status":     p.StatusCode,
 			"method":     p.Method,
 			"path":       p.Path,
