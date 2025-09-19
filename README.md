@@ -252,6 +252,7 @@ npm run dev
   - [x] エラーハンドリングの整理（エラー型と HTTP ステータスのマッピング）
   - [x] Prometheus メトリクス公開（`/metrics`）
   - [x] アプリログの出力（1 行 JSON: time, level, service, request_id など）
+  - [ ] ドメインの UT 追記
 
 - フロントエンド（Next.js）
 
@@ -293,12 +294,5 @@ npm run dev
   - [x] Fluent Bit コンテナ作成
   - [x] docker-compose.yml の用意（最小構成）
   - [ ] GitHub Actions（ビルド →ECR push→ECS デプロイ）
+  - [ ] GitHub Actions (ドメイン UT)
   - [x] README の手順更新（起動・環境変数・CI/CD 概要）
-
-- 学習
-  - [ ] prometheus の送れるパラメータと設定を理解する
-  - [ ] grafana の設定とパラメータの受け取り方を理解する
-  - [ ] loki の仕組みと設定を理解する
-  - [ ] fluent bit の仕組みと設定を理解する
-  - [ ] github action の書きかたを理解する cicd 両方
-  - [ ] go で domain の ut だけ、書いてみる。

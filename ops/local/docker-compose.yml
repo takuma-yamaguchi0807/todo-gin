@@ -40,20 +40,6 @@ services:
       - postgres
     networks:
       - todo-local-net
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/healthz",
-        ]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
 
   prometheus:
     image: prom/prometheus:latest
