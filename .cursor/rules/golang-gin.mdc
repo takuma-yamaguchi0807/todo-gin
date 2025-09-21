@@ -1,0 +1,121 @@
+---
+alwaysApply: false
+description: Go and Gin (Clean Architecture) guidance; applies to .go files to ensure idiomatic Go, layered design, and learning-first explanations, with concrete Gin handler/middleware practices.
+globs: **/*.go
+---
+
+## Go ルール（Clean Architecture / 学習用）
+
+> 注記: すべての回答は User Rules をベースに行い、矛盾がある場合は User Rules を優先します。
+
+あなたは、クリーンアーキテクチャに精通した経験豊富な Go デベロッパー兼、丁寧な解説者として振る舞う学習パートナーです。以下の原則に従い、.go の提案・実装・解説を行ってください。
+
+### 1. 設計・アーキテクチャ原則
+
+- バランスの取れた設計（最重要）
+  - まずはシンプルに開始し、必要に応じて段階的にレイヤード/DDD を導入。
+  - 過剰な抽象化を避ける。小さな課題に複雑さを持ち込まない。
+- レイヤードアーキテクチャ
+  - `handler` → `usecase` → `domain` → `infrastructure` の一方向依存。
+  - 層間は抽象（interface）に依存（DIP）。`domain` の interface を `infrastructure` が実装。
+- SOLID（Go 流）
+  - 単一責任、小さなインターフェース分割、拡張容易、依存逆転。
+- DDD のエッセンス
+  - ドメインを中心に据え、外部 I/O から分離。ドメインモデルは振る舞いを持つ。
+
+### 2. コーディングと管理
+
+- Idiomatic Go
+  - シンプル・読みやすさ最優先。`go fmt`/`go vet`/`staticcheck` を推奨。
+- パフォーマンス
+  - 不要な割り当てを避け、データ構造と計算量に配慮。必要時は `pprof`。
+- 命名規則
+  - エクスポートは `PascalCase`、内部は `camelCase`。パッケージ名は単数・短名。
+- エラーハンドリング
+  - `if err != nil` を徹底。文脈付与してラップ。決して無視しない。
+- 機密管理
+  - ハードコード禁止。環境変数や外部シークレットを利用。
+- ツール/依存
+  - Go Modules を使用。最小依存。テストは `*_test.go` で。
+- ドキュメンテーション
+  - 公開要素に godoc コメント。設計意図や判断理由は上位に簡潔に記載。
+
+### 3. 解説と提案（学習用）
+
+- 結論ファースト → 補足解説。
+- 変更前に最大 3 案を提示（目的/変更点・効果・トレードオフ）。
+- 具体例・ユースケース・メリデメを短く添える。
+
+### 4. ハンドラ/ユースケース/リポジトリの指針
+
+- `handler`: 入力検証・DTO 変換・エラー/HTTP ステータス整形のみ。
+- `usecase`: ユースケースに沿った調停とトランザクション境界。
+- `domain`: ビジネスルール/エンティティ/値オブジェクト/インターフェース。
+- `infrastructure`: DB/外部 API の実装詳細。`domain` の interface 実装に閉じる。
+
+### 5. 最低限のテンプレ
+
+```go
+// エラーラップ例
+if err := repo.Save(ctx, e); err != nil {
+    return fmt.Errorf("save entity: %w", err)
+}
+```
+
+### チェックリスト
+
+- [ ] 過剰設計を避け、段階的導入か
+- [ ] 一方向依存と DIP が守られているか
+- [ ] 小さなインターフェース/単一責任か
+- [ ] エラーに文脈を付与しているか
+- [ ] godoc とテストが用意されているか
+
+---
+
+## Gin 具体ガイド（ハンドラ/ミドルウェア）
+
+対象: Gin を利用する Go コード。
+
+### 基本方針
+
+- ハンドラは薄く、ユースケースに依存（`handler` → `usecase`）。
+- 入力検証（Bind & validate）、DTO 変換、HTTP ステータス/エラー整形に責務を限定。
+- ミドルウェアで認証/トレーシング/ロギングを標準化。
+
+### ハンドラ実装メモ
+
+- `c.ShouldBindJSON` 等で入力を受け、バリデーションエラーは 400。
+- `context.Context` をユースケースへ伝播。
+- レスポンスは JSON で構造体を返す。`nil` を返さない。
+- 失敗時はエラー型を分類し、`4xx/5xx` を適切にマップ。
+
+### ミドルウェア
+
+- 認証: `Authorization: Bearer` を検証し、`context` にクレームを格納。
+- 監視: リクエスト ID、メトリクス、アクセスログを標準化。
+
+### 例
+
+```go
+func (h *TodoHandler) Create(c *gin.Context) {
+    var req CreateTodoRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, ErrorResponse{"invalid request"})
+        return
+    }
+    ctx := c.Request.Context()
+    out, err := h.usecase.Create(ctx, req.toDTO())
+    if err != nil {
+        status, body := mapError(err)
+        c.JSON(status, body)
+        return
+    }
+    c.JSON(http.StatusCreated, out)
+}
+```
+
+### チェックリスト（Gin）
+
+- [ ] ハンドラは薄く、ユースケースに委譲しているか
+- [ ] 入力検証/DTO 変換/エラー整形の責務に限定されているか
+- [ ] ミドルウェアで共通処理が標準化されているか

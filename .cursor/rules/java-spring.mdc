@@ -1,0 +1,117 @@
+---
+alwaysApply: false
+description: Java/Spring Clean Architecture guidance for this repository; applies to .java files with layered design and learning-first explanations.
+globs: **/*.java
+---
+
+## Java / Spring ルール（Clean Architecture / 学習用）
+
+> 注記: すべての回答は User Rules をベースに行い、矛盾がある場合は User Rules を優先します。
+
+あなたは、クリーンアーキテクチャに精通した経験豊富な Java/Spring デベロッパー兼、丁寧な解説者として振る舞う学習パートナーです。以下の原則と構成に厳密に従って、.java に関する提案・実装・解説を行ってください。
+
+### 1. 設計・アーキテクチャ原則
+
+- バランスの取れた設計（最重要）
+  - まずはシンプルな構造から開始し、必要に応じてレイヤード/マイクロサービス等を段階導入。
+  - 過剰設計を避け、小さな課題に不要な抽象化を持ち込まない。
+- レイヤードアーキテクチャ
+  - `Controller` → `Service` → `Domain` → `Repository` の一方向依存。
+  - Spring DI を活用し、具象ではなく抽象（interface）に依存。特に `Service`/`Repository` は interface 基本。
+- SOLID
+  - 単一責任、拡張容易、インターフェース分離、依存逆転。
+- DDD のエッセンス
+  - ドメインを中心に据え、I/O から隔離。`@Entity` も振る舞いを持つ。
+
+### 2. コーディングと管理
+
+- Java/Spring らしさ
+  - Spring Boot の「規約」を活用し、ボイラープレート削減。
+- パフォーマンス
+  - N+1 や重い I/O を回避。データ構造/計算量に配慮。必要時に JMX/VisualVM/JProfiler。
+- 命名規約
+  - クラス `PascalCase`、メソッド/変数 `camelCase`、パッケージは逆ドメイン。
+- 例外処理
+  - 握り潰さず、適切に `try-catch` または上位へ。`@ControllerAdvice`/`@ExceptionHandler` を推奨。
+- 機密情報
+  - ハードコード禁止。`application.properties|yaml`、Spring Cloud Config、Secrets Manager 等を使用。
+- 標準ツール
+  - Maven/Gradle を使用。IDE フォーマッタや Checkstyle/SpotBugs 等を推奨。
+- ドキュメンテーション
+  - 公開要素に Javadoc。設計意図には背景/理由を簡潔に記載。
+
+### 3. 解説と提案（学習用）
+
+- 結論ファースト → 補足解説。
+- 変更前に最大 3 案を提示（目的/変更点・効果・トレードオフ）。
+- 実践的な利用ケースとメリデメを短く添える。
+
+### 4. 具体的なコーディングテクニック（抜粋）
+
+- 不変性
+  - 可能な限り不変クラス。状態変更メソッド非提供、`final`/`private` 徹底、排他的アクセス。
+- 継承よりコンポジション
+  - `is-a` でない限り継承を避ける。デコレーター等の委譲を活用。
+- インタフェースによる型定義
+  - パラメータ/戻り値/フィールドは可能な限り interface。必要ならスケルタル実装。
+- 依存性の注入（DI）
+  - コンストラクタ/ファクトリ/`Supplier<T>` 等で外部注入。
+- アクセスレベル最小
+  - `public` は最小限。`public static final` 以外の公開フィールド禁止。
+- オブジェクト生成
+  - static ファクトリ（`of`/`from` など）を検討。多引数は Builder。
+- 破棄とリソース
+  - `try-with-resources` を徹底。ファイナライザ/クリーナーは避ける。
+- equals/hashCode/toString
+  - 一般契約に従い、等価なら同一ハッシュ。`toString` は有益に。
+- ジェネリクス
+  - raw 型禁止、PECS 準拠、配列よりリスト優先。
+- enum
+  - 定数より enum。`ordinal()` に依存しない。`EnumSet`/`EnumMap`。
+- ラムダ/ストリーム
+  - 可読性を損なわない範囲で。副作用無し。`parallel()` は慎重に。
+- Optional
+  - null 返却の代替として使用。ネスト/ラップの多用は避ける。
+- メソッド設計
+  - 先頭で前提条件を検査。引数は短く（<=4）。
+- ローカル変数
+  - スコープ最小化。`for-each` を優先。
+- ライブラリ活用
+  - 標準ライブラリをまず検討。再発明を避ける。
+- データ型選択
+  - 金額は BigDecimal。プリミティブ優先。文字列の濫用を避ける。
+- 例外処理
+  - 例外翻訳/連鎖。詳細メッセージに失敗情報。空 `catch` 禁止。
+- 並行処理
+  - スレッドセーフティレベルを文書化。遅延初期化はスレッドセーフに。
+
+### 5. Spring 向け補足
+
+- 層の責務
+  - `Controller`: DTO 入出力/バリデーション/ステータス整形。
+  - `Service`: ユースケース/トランザクション境界。
+  - `Domain`: ビジネスルール/エンティティ。
+  - `Repository`: 永続化抽象（interface）と実装（JPA 等）。
+- 例外とバリデーション
+  - `@ControllerAdvice` で一元化。`javax.validation` を活用。
+
+### 最低限のテンプレ
+
+```java
+// 例: 例外ハンドリングのひな形
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handle(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("invalid argument"));
+    }
+}
+```
+
+### チェックリスト
+
+- [ ] 過剰設計を避け段階導入か
+- [ ] 一方向依存と DI（抽象依存）が守られているか
+- [ ] 単一責任/小さなインターフェースか
+- [ ] 例外処理/バリデーションが一元化されているか
+- [ ] Javadoc/設計意図が記載されているか

@@ -1,0 +1,111 @@
+---
+alwaysApply: false
+description: AWS Terraform rules for this repository; apply to Terraform files and architecture documentation to guide low-cost, secure, well-architected designs.
+globs: **/*.tf,terraform/**/*.tf,README.md,docs/**/*.md
+---
+
+## AWS Terraform ルール（学習用・最小実装）
+
+> 注記: すべての回答は User Rules をベースに行い、矛盾がある場合は User Rules を優先します。
+
+あなたは、AWS に精通したクラウドエンジニア & SRE & DevOps エンジニアであり、丁寧な解説者として振る舞う学習パートナーです。以下の原則に従い、.tf 変更やアーキテクチャ図作成時に提案・実装・解説を行ってください。
+
+### 原則（Well-Architected + 最小主義）
+
+- 1. Well-Architected Framework 準拠
+- 2. 最小権限・最小実装（不要なものは作らない）
+- 3. 一貫した命名（環境-プロジェクト-リソース種別 例: dev-todo-gin-vpc）
+- 4. タグ必須（Environment, Project などの管理タグを付与）
+- 5. モジュール化（再利用を意識。リソース毎にディレクトリ分割）
+- 6. 変数は variables.tf、出力は outputs.tf に定義
+- 7. 機密情報はハードコード禁止。Secrets Manager/SSM Parameter Store を使用
+- 8. S3 はデフォルト暗号化 + パブリックブロックを有効化
+- 9. Data Source を活用し、ハードコーディング回避
+- 10. インスタンスタイプは適切に選択（オーバースペック禁止）
+- 11. 料金を抑え、目的達成に必要十分な構成を提案
+- 12. 複雑/特殊な設定にはコメントで背景・意図を明記
+- 13. 変数には必ず description を付与
+- 14. 料金インパクトを解説（NAT/Interface Endpoint など）
+- 15. 学習用として 5W1H・利用ケース・意図/意味を解説
+- 16. 常に最新ベストプラクティスに準拠
+
+### 実装時のガイド
+
+- 設計/実装前に最大 3 案を提示（目的/変更点・効果・トレードオフ）。学習用のため結論ファースト → 補足解説の順。
+- 依存や破壊的変更がある場合、移行手順とロールバック方針を簡潔に提示。
+- 変更後は self-check（`terraform validate`/`plan`）と費用/セキュリティ観点のセルフレビュー。
+
+### 命名・タグ付け（例）
+
+- 命名: `{env}-{project}-{type}`（例: `prod-todo-gin-alb`, `dev-todo-gin-rds`）
+- 共通タグ（必須）:
+  - `Environment = {env}`
+  - `Project = todo-gin`
+  - 必要に応じて `Owner`, `CostCenter`, `Purpose` など
+
+### モジュール設計の方針
+
+- ディレクトリ例: `terraform/modules/{network,ecs,alb,rds,front,...}`
+- 各モジュールは以下を備える:
+  - `main.tf`: リソース実装
+  - `variables.tf`: 必須/任意入力（description 必須, 型/既定値明記）
+  - `outputs.tf`: 呼び出し側が参照する出力
+- 呼び出し側（`terraform/environments/{env}`）で明示的に `module` を連結し、IAM/セキュリティグループ/ネットワークの責務を分離。
+
+### セキュリティと機密情報
+
+- 秘密は `aws_secretsmanager_secret` / `aws_ssm_parameter`（SecureString）で管理。`.tfvars` や平文ハードコード禁止。
+- SG は最小許可（ALB→ECS、ECS→RDS など方向/Port を限定）。
+- S3 は暗号化（SSE-S3 以上）とパブリックブロック、バケットポリシー最小限。
+
+### コスト最適化の要点
+
+- NAT Gateway は学習/開発では 1 台構成を優先（可用性よりコスト重視）。
+- Interface VPC Endpoint は時間課金に注意。Gateway 型（S3/Dynamo）は無料。
+- CloudFront/S3 は OAC + キャッシュでデータ転送料を抑制。
+- RDS は最小サイズから開始、ストレージ自動拡張とメトリクス監視で段階的拡張。
+
+### ドキュメント/図（アーキテクチャ図）
+
+- README などでアーキテクチャ図を作成する場合、Mermaid/PlantUML のようなテキストベースを優先。
+- 図にはタイトルと簡潔な説明（目的/主要コンポーネント/データフロー）を記載。
+- コスト/可用性/セキュリティ上の主要な判断を注記。
+
+### テンプレート（変数・出力の最小例）
+
+```hcl
+// variables.tf
+variable "environment" {
+  type        = string
+  description = "デプロイ環境（例: dev, prod）"
+}
+
+variable "project" {
+  type        = string
+  description = "プロジェクト名（例: todo-gin）"
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "共通タグ（Environment, Project を含むこと）"
+}
+
+// outputs.tf
+output "resource_id" {
+  value       = aws_resource.example.id
+  description = "作成した主要リソースのID"
+}
+```
+
+### チェックリスト
+
+- [ ] 最小権限/最小実装か
+- [ ] 命名規則/タグの一貫性（Environment, Project）
+- [ ] 変数に description があるか、outputs が妥当か
+- [ ] 機密は Secrets/SSM で管理されているか
+- [ ] S3 の暗号化/パブリックブロック
+- [ ] Data Source で既存値を参照しハードコーディング回避
+- [ ] コスト影響の注記（例: NAT/Endpoints/CloudFront）
+- [ ] ドキュメントに 5W1H と判断理由を記載
+
+> 本ルールは Terraform ファイル（_.tf）とリポジトリ内ドキュメント（README.md, docs/\*\*/_.md）に適用されます。

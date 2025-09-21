@@ -8,9 +8,6 @@ Thumbs.db
 .vscode/*
 !.vscode/settings.json
 
-# cursor
-.cursor/
-
 # Go build/test artifacts
 bin/
 build/
