@@ -23,18 +23,29 @@ Go + Gin をバックエンド、TypeScript + React + Next をフロント、AWS
 graph TD
   UserBrowser -- HTTPS --> CloudFront
   CloudFront -- SPA --> S3
-  UserBrowser -- HTTPS_API --> ALB
-  ALB --> ECS_Fargate
-  ECS_Fargate --> RDS_PostgreSQL
-  ECS_Fargate --> Prometheus_Exporter
-  ECS_Fargate --> FluentBit
+  UserBrowser -- HTTPS_API --> Route53
+  Route53 -- api_aws_traning_com --> ALB
+  ACM_us_east_1 -- cert --> CloudFront
+  ACM_region -- cert --> ALB
+
+  subgraph VPC
+    ALB --> ECS_A
+    ALB --> ECS_B
+    ECS_A --> RDS_Primary
+    ECS_B --> RDS_Standby
+  end
+
+  RDS_Primary <--> RDS_Standby
+  ECS_A --> Prometheus_Exporter
+  ECS_A --> FluentBit
   FluentBit --> GrafanaLoki
   Grafana --> Prometheus
   Grafana --> GrafanaLoki
-  ECR --> ECS_Fargate
+  ECR --> ECS_A
+  ECR --> ECS_B
 ```
 
-注記: 図のラベルは記号制約のため簡略化しています。実際は Route53 や ACM を併用します。
+注記: 図のラベルは記号制約のため簡略化しています。CloudFront 用証明書は us-east-1、ALB 用証明書は各リージョンで ACM を利用します。
 
 ## ドメインモデル（最小）
 
@@ -266,24 +277,29 @@ npm run dev
 
 - インフラ（Terraform / AWS）
 
-  - [ ] S3 + CloudFront（SPA 配信）
   - [ ] VPC（CIDR 設計、名前・タグ）
   - [ ] パブリック/プライベートサブネット（AZ 分散、命名/タグ）
-  - [ ] インターネットゲートウェイ（IGW）/ ルートテーブル（RT）
-  - [ ] NAT ゲートウェイ（コスト最適化の方針: 1AZ or 各 AZ）
+  - [ ] ルートテーブル / インターネットゲートウェイ / NAT ゲートウェイ（各 AZ 配置; 可用性優先）
+  - [ ] VPC エンドポイント（必要に応じて: ECR, CloudWatch Logs, Secrets Manager）[任意]
   - [ ] セキュリティグループ（ALB → ECS、ECS → RDS 最小許可）
-  - [ ] VPC エンドポイント（必要に応じて: ECR, CloudWatch Logs 等）
-  - [ ] ECS Fargate + ALB（API）
-  - [ ] FireLens(Fluent Bit) 組み込み（ECS タスク定義: awsfirelens ログドライバ）
-  - [ ] CloudWatch Logs ロググループ設計（保持期間/メトリクスフィルタ）
-  - [ ] Loki 運用方針（ECS or マネージド代替の検討、S3/EFS 永続化）
-  - [ ] Grafana 運用方針（自前/ECS or Amazon Managed Grafana）
-  - [ ] AMP（Amazon Managed Prometheus）/ remote_write の検討（任意）
-  - [ ] IAM 権限設計（ECS タスクロール: Logs/ECR/Secrets、FireLens 出力先）
-  - [ ] RDS PostgreSQL（DB）
   - [ ] ECR（コンテナレジストリ）
+  - [ ] IAM（ECS タスク実行ロール/タスクロール、ECR/Logs/Secrets 権限）
+  - [ ] RDS（サブネットグループ/パラメータグループ/インスタンス）
   - [ ] Secrets Manager（JWT 秘密鍵、DB 接続）
-  - [ ] Route53 + ACM（ドメイン/証明書）
+  - [ ] CloudWatch Logs（ロググループ、保持期間/メトリクスフィルタ）
+  - [ ] ECS クラスタ
+  - [ ] ALB（ロードバランサ、ターゲットグループ、リスナー: HTTP から開始）
+  - [ ] ECS タスク定義（コンテナ設定、環境変数/Secrets、ログ、FireLens オプション）
+  - [ ] ECS サービス（ALB にアタッチ、ヘルスチェック）
+  - [ ] Route53（Hosted Zone/レコード: api 用）
+  - [ ] ACM 証明書（リージョン: ALB 用、DNS 検証）
+  - [ ] ALB リスナーを HTTPS へ更新（ACM 適用）
+  - [ ] S3（SPA 配信用バケット: 暗号化/パブリックブロック/OAC 想定）
+  - [ ] ACM 証明書（バージニア北部: CloudFront 用、DNS 検証）
+  - [ ] CloudFront（OAC で S3 をオリジンに、証明書適用）
+  - [ ] Route53（フロント用レコード: www/ルート）
+  - [ ] アクセスログ用 S3（ALB/CloudFront ログ保存）[任意]
+  - [ ] コスト最適化とタグ付けの最終確認
 
 - ローカル開発・運用
 
